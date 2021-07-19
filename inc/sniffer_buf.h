@@ -35,9 +35,6 @@ uint32_t len_sniffer_buf(sniffer_buf * dest);
 uint32_t size_sniffer_buf(sniffer_buf * dest);
 uint32_t left_sniffer_buf(sniffer_buf * dest);
 
-uint32_t copy_sniffer_buf(sniffer_buf * dest,const char * str);
-uint32_t copy_sniffer_buf(sniffer_buf * dest,const char * data,uint32_t len);
-
 uint32_t cat_sniffer_buf(sniffer_buf * dest,const char * str);
 uint32_t cat_sniffer_buf(sniffer_buf * dest,const char * data,uint32_t len);
 

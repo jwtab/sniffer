@@ -65,21 +65,40 @@ void destroy_sniffer_buf(sniffer_buf * dest)
     }
 }
 
-uint32_t copy_sniffer_buf(sniffer_buf * dest,const char * str)
+uint32_t cat_sniffer_buf(sniffer_buf * dest,const char * str)
 {
-    return copy_sniffer_buf(dest,str,strlen(str));
+    return cat_sniffer_buf(dest,str,strlen(str));
 }
 
-uint32_t copy_sniffer_buf(sniffer_buf * dest,const char * data,uint32_t len)
+uint32_t cat_sniffer_buf(sniffer_buf * dest,const char * data,uint32_t len)
 {
-    //剩余是否足够.
     if(left_sniffer_buf(dest) > len)
     {
-
+        memcpy(dest->buf + dest->used,data,len);
+        dest->used = dest->used + len;
     }
     else
     {
-        dest->buf = (char*)zrealloc(dest->buf,sizeof(char)*(left_sniffer_buf(dest) + len*2));
+        uint32_t size = size_sniffer_buf(dest) + len + 64;
+        char * temp = (char*)zmalloc(sizeof(char)*(size));
+        if(temp)
+        {
+            memcpy(temp,dest->buf,dest->used);
+            memcpy(temp + dest->used,data,len);
+
+            dest->used = dest->used + len;
+            dest->size = size;
+
+            //释放之前的空间.
+            char * p = dest->buf;
+            dest->buf = temp;
+
+            if(p)
+            {
+                zfree(p);
+                p = NULL;
+            }
+        }
     }
 
     return dest->used;

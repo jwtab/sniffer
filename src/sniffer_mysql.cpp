@@ -17,7 +17,7 @@ static uint32_t _mysql_lenenc(const char * data,uint32_t &offset,uint16_t &len_l
     }
     else if (flag == 0xfc)
     {
-        attrs_len = (data[offset]&0xff) + (data[offset + 1] << 8);
+        attrs_len = (data[offset]&0xff) + ((data[offset + 1]&0xff) << 8);
         offset = offset + 2;
 
         len_len = 2;
@@ -31,7 +31,7 @@ static uint32_t _mysql_lenenc(const char * data,uint32_t &offset,uint16_t &len_l
     }
     else if (flag == 0xfe)
     {
-        attrs_len = (data[offset]&0xff) + (data[offset + 1] << 8) + (data[offset + 2] << 16) + (data[offset + 2] << 24);
+        attrs_len = (data[offset]&0xff) + (data[offset + 1] << 8) + (data[offset + 2] << 16) + (data[offset + 3] << 24);
         offset = offset + 4;
 
         len_len = 4;
@@ -78,6 +78,11 @@ static void dispatch_data_mysql_upstream_RequestQuery(sniffer_session *session,c
     case COM_QUERY:
     case COM_CREATE_DB:
     case COM_DROP_DB:
+        {
+            dispatch_data_mysql_sql(sql,request_data + offset,data_len - offset);
+            break;
+        }
+        
     case COM_STMT_PREPARE:
         {
             dispatch_data_mysql_sql(sql,request_data + offset,data_len - offset);

@@ -156,6 +156,13 @@ typedef struct st_mysql
     bool query;
 
     //上下行数据.
+	struct sniffer_buf * upstream_buf;
+    struct sniffer_buf * downstream_buf;
+	uint32_t seq_number;
+	uint32_t packet_len;
+
+	//绑定变量
+	
 }ST_MTSQL;
 
 int dispatch_data_mysql(sniffer_session *session,const char * data,uint32_t data_len);
