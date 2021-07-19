@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+
+objs/
+.DS_Store
+bin/sniffer
