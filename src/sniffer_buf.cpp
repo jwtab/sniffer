@@ -103,3 +103,28 @@ uint32_t cat_sniffer_buf(sniffer_buf * dest,const char * data,uint32_t len)
 
     return dest->used;
 }
+
+uint32_t rePosition_sniffer_buf(struct sniffer_buf *buf,uint32_t start)
+{
+    /*
+
+    */
+    uint32_t new_len = buf->used - start;
+    char * dest = (char*)zmalloc(sizeof(char)*new_len);
+    if(dest)
+    {
+        memcpy(dest,buf->buf + start,new_len);
+
+        memset(buf->buf,0,buf->size);
+        memcpy(buf->buf,dest,new_len);
+
+        buf->used = new_len;
+
+        zfree(dest);
+        dest = NULL;
+
+        return new_len;
+    }
+
+   return 0;
+}

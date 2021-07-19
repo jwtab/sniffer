@@ -349,14 +349,19 @@ int sniffer_session_add(const char * key,tcp_stream stream)
         sess->data_fun = dispatch_data_mysql;
 
         st_mysql * st = (struct st_mysql*)zmalloc(sizeof(struct st_mysql));
-        st->query = false;
-        st->compressed = false;
-        st->ssl = false;
-        st->capabilities = 0x807FF7FF;
+        if(st)
+        {
+            st->query = false;
+            st->compressed = false;
+            st->ssl = false;
+            st->capabilities = 0x807FF7FF;
 
-        //默认使用高级别判断.
-        st->isHandshakeV10 = true;
-        st->isProtocolV41 = true;
+            //默认使用高级别判断.
+            st->isHandshakeV10 = true;
+            st->isProtocolV41 = true;
+
+            st->downstream_buf = init_sniffer_buf(4096);
+        }
 
         sess->db_features = (void*)st;
     }

@@ -34,3 +34,4 @@
 objs/
 .DS_Store
 bin/sniffer
+.vscode/

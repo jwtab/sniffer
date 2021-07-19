@@ -38,6 +38,8 @@ uint32_t left_sniffer_buf(sniffer_buf * dest);
 uint32_t cat_sniffer_buf(sniffer_buf * dest,const char * str);
 uint32_t cat_sniffer_buf(sniffer_buf * dest,const char * data,uint32_t len);
 
+uint32_t rePosition_sniffer_buf(struct sniffer_buf *buf,uint32_t start);
+
 void destroy_sniffer_buf(sniffer_buf * dest);
 
 #endif //SNIFFER_BUF_H_H_

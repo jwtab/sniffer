@@ -156,7 +156,6 @@ typedef struct st_mysql
     bool query;
 
     //上下行数据.
-	struct sniffer_buf * upstream_buf;
     struct sniffer_buf * downstream_buf;
 	uint32_t seq_number;
 	uint32_t packet_len;
@@ -172,4 +171,5 @@ int dispatch_data_mysql_downstream(sniffer_session *session,const char * data,ui
 
 int dispath_data_mysql_downstream_err_packet(sniffer_session *session,const char * data,uint32_t data_len);
 
+int dispath_data_mysql_parseHead(struct st_mysql *mysql,struct sniffer_buf *buf);
 #endif //SNIFFER_MYSQL_H_H_
