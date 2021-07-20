@@ -7,6 +7,8 @@ int dispath_data_mysql_parseHead(struct st_mysql *mysql,struct sniffer_buf *buf)
 {
     mysql->packet_len = (buf->buf[0]&0xff) + ((buf->buf[1]&0xff) << 8) + ((buf->buf[2]&0xff) << 16);
     mysql->seq_number = (buf->buf[3]&0xff);
+
+    return MYSQL_HEAD_LEN;
 }
 
 static uint32_t _mysql_lenenc(const char * data,uint32_t &offset,uint16_t &len_len)
@@ -69,11 +71,13 @@ static void dispatch_data_mysql_upstream_RequestQuery(sniffer_session *session,c
     }
 
     MYSQL_TEXT_PROTOCOL command_type = (MYSQL_TEXT_PROTOCOL)request_data[offset];
-
     struct st_mysql * st = (struct st_mysql*)session->db_features;
     if(st)
     {
         st->query = true;
+        st->cmd_type = command_type;
+
+        st->affect_rows = 0;
     }
 
     string sql = "";
@@ -502,12 +506,14 @@ int dispatch_data_mysql_downstream(sniffer_session *session,const char * data,ui
     {
         if(len_sniffer_buf(st->downstream_buf) < MYSQL_HEAD_LEN)
         {
+            WARN_LOG("sniffer_mysql.cpp:dispatch_data_mysql_downstream() _packet_len %d NOT_MEET_MYSQL_HEAD",len_sniffer_buf(st->downstream_buf));
             break;
         }
 
         offset = dispath_data_mysql_parseHead(st,st->downstream_buf);
-        if(len_sniffer_buf(st->downstream_buf) < st->packet_len)
+        if(len_sniffer_buf(st->downstream_buf) < (MYSQL_HEAD_LEN + st->packet_len))
         {
+            WARN_LOG("sniffer_mysql.cpp:dispatch_data_mysql_downstream() _packet_len %d NOT_MEET_MYSQL_PACKET",len_sniffer_buf(st->downstream_buf));
             break;
         }
 
@@ -516,15 +522,83 @@ int dispatch_data_mysql_downstream(sniffer_session *session,const char * data,ui
         if(st->query)
         {
             //Query Response.
-            if(0xff == (data[4]&0xff))
+            if(0xff == (index_sniffer_buf(st->downstream_buf,offset)&0xff))
             {
                 INFO_LOG("sniffer_mysql.cpp:dispatch_data_mysql_downstream() type %s","[Query Response] ERROR");
-                dispath_data_mysql_downstream_err_packet(session,data + MYSQL_HEAD_LEN,data_len - MYSQL_HEAD_LEN);
+                dispath_data_mysql_downstream_err_packet(session,st->downstream_buf->buf + offset,len_sniffer_buf(st->downstream_buf) - offset);
             }
-            else
+            else if(0xfe == (index_sniffer_buf(st->downstream_buf,offset)&0xff))
+            {
+                //判断是否是表头结束. 可能出于表头和表数据直接的EOF.
+                if(len_sniffer_buf(st->downstream_buf) <= 7)
+                {
+                    reset_sniffer_buf(st->downstream_buf);
+                    break;
+                }
+                else
+                {
+                    rePosition_sniffer_buf(st->downstream_buf,(st->packet_len + offset));
+                    continue;
+                }
+            }
+            else if(0x00 == (index_sniffer_buf(st->downstream_buf,offset)&0xff))
             {
                 INFO_LOG("sniffer_mysql.cpp:dispatch_data_mysql_downstream() type %s","[Query Response] OK");
                 session->err_code = 0;
+
+                if(st->cmd_type == COM_STMT_PREPARE)
+                {
+
+                }
+                else
+                {
+                    if(st->cmd_type != COM_STMT_EXECUTE)
+                    {
+                        //非select语句:delete/insert/update/grant/create/drop...
+
+                    }
+                }
+            }
+
+            //解析数据
+            if(COM_FIELD_LIST == st->cmd_type)
+            {
+                //解析表头.
+            }
+            else if(COM_STMT_PREPARE == st->cmd_type)
+            {
+
+            }
+            else
+            {
+                //select_SQL.
+                if(st->seq_number == 1)
+                {
+                    st->columns_select = (index_sniffer_buf(st->downstream_buf,offset)&0xff);
+                    st->columns_select_index = st->columns_select;
+
+                    INFO_LOG("sniffer_mysql.cpp:dispatch_data_mysql_downstream() columns_select %d",st->columns_select);
+                }
+                else
+                {
+                    if(st->columns_select_index <= 0)
+                    {
+                        if(st->cmd_type == COM_STMT_EXECUTE)
+                        {
+
+                        }
+                        else
+                        {
+                            //解析表数据.
+                        }
+                    }
+                    else
+                    {
+                        //解析表头.
+                        DEBUG_LOG("sniffer_mysql.cpp:dispatch_data_mysql_downstream() columns_select_index %d",st->columns_select_index);
+                        st->columns_select_index = st->columns_select_index - 1;
+                    }
+                }
             }
         }
         else
@@ -535,23 +609,22 @@ int dispatch_data_mysql_downstream(sniffer_session *session,const char * data,ui
                 {
                     //Server Greeting
                     INFO_LOG("sniffer_mysql.cpp:dispatch_data_mysql_downstream() type %s","[Server Greeting]");
-
-                    dispatch_data_mysql_downstream_Handshake(session,data + MYSQL_HEAD_LEN,data_len - MYSQL_HEAD_LEN);
+                    dispatch_data_mysql_downstream_Handshake(session,st->downstream_buf->buf + offset,len_sniffer_buf(st->downstream_buf) - offset);
                     break;
                 }
 
             case 2:
                 {
                     //[Auth Switch Request] OR [Response OK]
-                    if(0xfe == (data[4]&0xff))
+                    if(0xfe == (index_sniffer_buf(st->downstream_buf,offset)&0xff))
                     {
                         INFO_LOG("sniffer_mysql.cpp:dispatch_data_mysql_downstream() type %s","[Auth Switch Request]");
                     }
-                    else if(0xff == (data[4]&0xff))
+                    else if(0xff == (index_sniffer_buf(st->downstream_buf,offset)&0xff))
                     {
                         INFO_LOG("sniffer_mysql.cpp:dispatch_data_mysql_downstream() type %s","[2_Response OK] ERROR");
-                            
-                        dispath_data_mysql_downstream_err_packet(session,data + MYSQL_HEAD_LEN,data_len - MYSQL_HEAD_LEN);
+                        
+                        dispath_data_mysql_downstream_err_packet(session,st->downstream_buf->buf + offset,len_sniffer_buf(st->downstream_buf) - offset);
 
                         session->op_end  = sniffer_log_time_ms();
                         sniffer_session_log(session,true);
@@ -559,7 +632,7 @@ int dispatch_data_mysql_downstream(sniffer_session *session,const char * data,ui
                     else
                     {
                         INFO_LOG("sniffer_mysql.cpp:dispatch_data_mysql_downstream() type %s","[2_Response OK] OK");
-                            
+                        
                         session->err_code = 0;
                         session->op_end  = sniffer_log_time_ms();
 
@@ -572,10 +645,10 @@ int dispatch_data_mysql_downstream(sniffer_session *session,const char * data,ui
             case 4:
                 {
                     //Response OK
-                    if(0xff == (data[4]&0xff))
+                    if(0xff == (index_sniffer_buf(st->downstream_buf,offset)&0xff))
                     {
                         INFO_LOG("sniffer_mysql.cpp:dispatch_data_mysql_downstream() type %s","[4_Response OK] ERROR");
-                        dispath_data_mysql_downstream_err_packet(session,data + MYSQL_HEAD_LEN,data_len - MYSQL_HEAD_LEN);
+                        dispath_data_mysql_downstream_err_packet(session,st->downstream_buf->buf + offset,len_sniffer_buf(st->downstream_buf) - offset);
                     }
                     else
                     {
@@ -592,10 +665,10 @@ int dispatch_data_mysql_downstream(sniffer_session *session,const char * data,ui
         }
 
         //移动到下一个包.
-        rePosition_sniffer_buf(st->downstream_buf,st->packet_len);
-
+        rePosition_sniffer_buf(st->downstream_buf,(st->packet_len + MYSQL_HEAD_LEN));
         if(len_sniffer_buf(st->downstream_buf) <= 0)
         {
+            WARN_LOG("sniffer_mysql.cpp:dispatch_data_mysql_downstream() _packet_len %d EXIT",len_sniffer_buf(st->downstream_buf));
             break;
         }
     } while (1);

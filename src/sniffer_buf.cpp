@@ -48,6 +48,11 @@ uint32_t left_sniffer_buf(sniffer_buf * dest)
     return dest->size - dest->used;
 }
 
+char index_sniffer_buf(struct sniffer_buf * buf,uint32_t index)
+{
+    return buf->buf[index];
+}
+
 void destroy_sniffer_buf(sniffer_buf * dest)
 {
     if(dest)
@@ -127,4 +132,12 @@ uint32_t rePosition_sniffer_buf(struct sniffer_buf *buf,uint32_t start)
     }
 
    return 0;
+}
+
+uint32_t reset_sniffer_buf(struct sniffer_buf *buf)
+{
+    buf->used = 0;
+    memset(buf->buf,0,buf->size);
+
+    return buf->size;
 }

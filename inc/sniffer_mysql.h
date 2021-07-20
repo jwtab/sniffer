@@ -154,12 +154,17 @@ typedef struct st_mysql
     bool     isProtocolV41;
 
     bool query;
+	enum MYSQL_TEXT_PROTOCOL cmd_type;
 
     //上下行数据.
     struct sniffer_buf * downstream_buf;
 	uint32_t seq_number;
 	uint32_t packet_len;
+	uint32_t columns_select;
+	uint32_t columns_select_index;
 
+	uint32_t affect_rows;
+	
 	//绑定变量
 	
 }ST_MTSQL;

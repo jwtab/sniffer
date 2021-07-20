@@ -35,10 +35,13 @@ uint32_t len_sniffer_buf(sniffer_buf * dest);
 uint32_t size_sniffer_buf(sniffer_buf * dest);
 uint32_t left_sniffer_buf(sniffer_buf * dest);
 
+char index_sniffer_buf(struct sniffer_buf * buf,uint32_t index);
+
 uint32_t cat_sniffer_buf(sniffer_buf * dest,const char * str);
 uint32_t cat_sniffer_buf(sniffer_buf * dest,const char * data,uint32_t len);
 
 uint32_t rePosition_sniffer_buf(struct sniffer_buf *buf,uint32_t start);
+uint32_t reset_sniffer_buf(struct sniffer_buf *buf);
 
 void destroy_sniffer_buf(sniffer_buf * dest);
 
