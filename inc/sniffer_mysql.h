@@ -187,4 +187,8 @@ int dispatch_data_mysql_parseHead(struct st_mysql *mysql,struct sniffer_buf *buf
 
 uint32_t dispatch_mysql_DDL_Reponse(struct sniffer_buf *buf,uint32_t offset);
 
+uint32_t dispatch_mysql_ResultsetRow(sniffer_session *session);
+uint32_t dispatch_mysql_ResultsetRow_Stmt(sniffer_session *session);
+uint32_t dispatch_mysql_ResultsetRow_ColumnDefinition(sniffer_session *session);
+
 #endif //SNIFFER_MYSQL_H_H_

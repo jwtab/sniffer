@@ -609,12 +609,14 @@ int dispatch_data_mysql_downstream(sniffer_session *session,const char * data,ui
                         {
                             //xProxy_mysql_COM_STMT_EXECUTE_Response(proxy_mysql,offset);
                             st->affect_rows++;
+                            dispatch_mysql_ResultsetRow_Stmt(session);
                         }
                         else
                         {
                             //解析表数据.
                             //xProxy_mysql_ResultsetRow
                             st->affect_rows++;
+                            dispatch_mysql_ResultsetRow(session);
                         }
                     }
                     else
@@ -622,6 +624,7 @@ int dispatch_data_mysql_downstream(sniffer_session *session,const char * data,ui
                         //解析表头.
                         DEBUG_LOG("sniffer_mysql.cpp:dispatch_data_mysql_downstream() columns_select_index %d",st->columns_select_index);
                         st->columns_select_index = st->columns_select_index - 1;
+                        dispatch_mysql_ResultsetRow_ColumnDefinition(session);
                     }
                 }
             }
@@ -710,4 +713,43 @@ uint32_t dispatch_mysql_DDL_Reponse(struct sniffer_buf *buf,uint32_t offset)
     INFO_LOG("sniffer_mysql.cpp:dispatch_mysql_DDL_Reponse() affect_rows %d",attr_len);
 
     return attr_len;
+}
+
+uint32_t dispatch_mysql_ResultsetRow(sniffer_session *session)
+{
+    uint32_t attrs_len = 0;
+    uint16_t length_len = 0;
+
+    struct st_mysql* mysql = (struct st_mysql*)session->db_features;
+    struct sniffer_buf * buf = mysql->downstream_buf;
+
+    return 0;
+}
+
+uint32_t dispatch_mysql_ResultsetRow_Stmt(sniffer_session *session)
+{
+    return 0;
+}
+
+uint32_t dispatch_mysql_ResultsetRow_ColumnDefinition(sniffer_session *session)
+{
+    uint32_t attrs_len = 0;
+    uint16_t length_len = 0;
+
+    struct st_mysql* mysql = (struct st_mysql*)session->db_features;
+    struct sniffer_buf * buf = mysql->downstream_buf;
+
+    if(!mysql->isProtocolV41)
+    {
+        DEBUG_LOG("xProxy_db_mysql.c:dispatch_mysql_ResultsetRow_ColumnDefinition() %s NOT_DEAL","Protocol::ColumnDefinition320");
+        return;
+    }
+    
+    /*
+        Protocol::ColumnDefinition41
+
+        需要解析的数据依次为 catalog/schema/table/org_table/name/org_name,数据格式为string<lenenc>
+    */
+
+    return 0;
 }
