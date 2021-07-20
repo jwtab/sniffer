@@ -135,6 +135,7 @@ void sniffer_sql_log(sniffer_session * sess)
         return;
     }
 
+    sess->op_end = sniffer_log_time_ms();
     sess->from_upstream = !strcasecmp(sess->from_ip->buf,sniffer_cfg_capip().c_str());
 
     char id[64] = {0};
@@ -205,9 +206,25 @@ void sniffer_sql_log(sniffer_session * sess)
         cJSON_AddItemToObject(pValues,"sql_string",cJSON_CreateNull());
     }
 
-    cJSON_AddItemToObject(pValues,"err_code",cJSON_CreateNull());
-    cJSON_AddItemToObject(pValues,"err_msg",cJSON_CreateNull());
-    cJSON_AddItemToObject(pValues,"effect_rows",cJSON_CreateNumber(0));
+    cJSON_AddItemToObject(pValues,"err_code",cJSON_CreateNumber(sess->err_code));
+
+    if(sess->err_msg)
+    {
+        cJSON_AddItemToObject(pValues,"err_msg",cJSON_CreateString(sess->err_msg->buf));
+    }
+    else
+    {
+        cJSON_AddItemToObject(pValues,"err_msg",cJSON_CreateNull());
+    }
+
+    if(sess->db_type == DB_TYPE_MYSQL)
+    {
+        cJSON_AddItemToObject(pValues,"effect_rows",cJSON_CreateNumber(((struct st_mysql*)sess->db_features)->affect_rows));
+    }
+    else
+    {
+        cJSON_AddItemToObject(pValues,"effect_rows",cJSON_CreateNumber(0));
+    }
 
     cJSON_AddItemToObject(pValues,"db_type",cJSON_CreateString(sniffer_DB_TYPE_string(sess->db_type)));
 

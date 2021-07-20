@@ -160,13 +160,20 @@ typedef struct st_mysql
     struct sniffer_buf * downstream_buf;
 	uint32_t seq_number;
 	uint32_t packet_len;
+
 	uint32_t columns_select;
 	uint32_t columns_select_index;
 
 	uint32_t affect_rows;
-	
+
 	//绑定变量
-	
+	uint32_t statement_id;
+	uint32_t num_params;
+	uint32_t num_columns;
+	uint16_t num_columns_index;
+	uint16_t *columns_select_type;
+
+
 }ST_MTSQL;
 
 int dispatch_data_mysql(sniffer_session *session,const char * data,uint32_t data_len);
@@ -174,7 +181,10 @@ int dispatch_data_mysql(sniffer_session *session,const char * data,uint32_t data
 int dispatch_data_mysql_upstream(sniffer_session *session,const char * data,uint32_t data_len);
 int dispatch_data_mysql_downstream(sniffer_session *session,const char * data,uint32_t data_len);
 
-int dispath_data_mysql_downstream_err_packet(sniffer_session *session,const char * data,uint32_t data_len);
+int dispatch_data_mysql_downstream_err_packet(sniffer_session *session,const char * data,uint32_t data_len);
 
-int dispath_data_mysql_parseHead(struct st_mysql *mysql,struct sniffer_buf *buf);
+int dispatch_data_mysql_parseHead(struct st_mysql *mysql,struct sniffer_buf *buf);
+
+uint32_t dispatch_mysql_DDL_Reponse(struct sniffer_buf *buf,uint32_t offset);
+
 #endif //SNIFFER_MYSQL_H_H_
