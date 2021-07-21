@@ -186,3 +186,8 @@ void sniffer_cfg_print()
         g_config.db_type,
         g_config.kafka.c_str());
 }
+
+uint32_t sniffer_cfg_max_rowset()
+{
+    return 5;
+}

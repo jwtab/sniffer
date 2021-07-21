@@ -80,6 +80,17 @@ static void dispatch_data_mysql_upstream_RequestQuery(sniffer_session *session,c
         st->affect_rows = 0;
         st->columns_select = 0;
         st->columns_select_index = 0;
+
+        if(!st->columns_select_type)
+        {
+            zfree(st->columns_select_type);
+            st->columns_select_type = nullptr;
+        }
+
+        st->max_rowset = sniffer_cfg_max_rowset();
+        st->rowsets = init_sniffer_buf(1024);
+
+        reset_sniffer_buf(st->downstream_buf);
     }
 
     string sql = "";
@@ -586,6 +597,7 @@ int dispatch_data_mysql_downstream(sniffer_session *session,const char * data,ui
             {
                 //解析表头.
                 st->affect_rows++;
+                ///dispatch_mysql_ResultsetRow_ColumnDefinition(session);
             }
             else if(COM_STMT_PREPARE == st->cmd_type)
             {
@@ -599,6 +611,12 @@ int dispatch_data_mysql_downstream(sniffer_session *session,const char * data,ui
                     st->columns_select = (index_sniffer_buf(st->downstream_buf,offset)&0xff);
                     st->columns_select_index = st->columns_select;
 
+                    st->columns_select_type = (uint16_t*)zmalloc(sizeof(uint16_t)*st->columns_select);
+                    if(st->columns_select_type)
+                    {
+                        memset(st->columns_select_type,0,st->columns_select);
+                    }
+
                     INFO_LOG("sniffer_mysql.cpp:dispatch_data_mysql_downstream() columns_select %d",st->columns_select);
                 }
                 else
@@ -607,14 +625,12 @@ int dispatch_data_mysql_downstream(sniffer_session *session,const char * data,ui
                     {
                         if(st->cmd_type == COM_STMT_EXECUTE)
                         {
-                            //xProxy_mysql_COM_STMT_EXECUTE_Response(proxy_mysql,offset);
                             st->affect_rows++;
                             dispatch_mysql_ResultsetRow_Stmt(session);
                         }
                         else
                         {
                             //解析表数据.
-                            //xProxy_mysql_ResultsetRow
                             st->affect_rows++;
                             dispatch_mysql_ResultsetRow(session);
                         }
@@ -622,9 +638,9 @@ int dispatch_data_mysql_downstream(sniffer_session *session,const char * data,ui
                     else
                     {
                         //解析表头.
-                        DEBUG_LOG("sniffer_mysql.cpp:dispatch_data_mysql_downstream() columns_select_index %d",st->columns_select_index);
+                        DEBUG_LOG("sniffer_mysql.cpp:dispatch_data_mysql_downstream() columns_select_index %d",st->columns_select - st->columns_select_index);
+                        dispatch_mysql_ResultsetRow_ColumnDefinition(session,st->columns_select - st->columns_select_index);
                         st->columns_select_index = st->columns_select_index - 1;
-                        dispatch_mysql_ResultsetRow_ColumnDefinition(session);
                     }
                 }
             }
@@ -719,22 +735,222 @@ uint32_t dispatch_mysql_ResultsetRow(sniffer_session *session)
 {
     uint32_t attrs_len = 0;
     uint16_t length_len = 0;
+    uint32_t offset = MYSQL_HEAD_LEN;
+    string rowset = "";
 
     struct st_mysql* mysql = (struct st_mysql*)session->db_features;
     struct sniffer_buf * buf = mysql->downstream_buf;
+
+    if(mysql->max_rowset < 0)
+    {
+        return 0;
+    }
+
+    while(offset < (mysql->packet_len + MYSQL_HEAD_LEN))
+    {
+        //依次按照字符串解析数据.NULL 为0xfb
+        if(0xfb == (buf->buf[offset]&0xff))
+        {
+            DEBUG_LOG("sniffer_mysql.c:dispatch_mysql_ResultsetRow() value %s","NULL");
+            offset++;
+
+            rowset = rowset + "NULL";
+            rowset = rowset + "||";
+        }
+        else
+        {
+            string value = "";
+            attrs_len = _mysql_lenenc((const char *)buf->buf,offset,length_len);
+            if(attrs_len >= 1)
+            {
+                value.append(buf->buf + offset,attrs_len);
+            }
+            else
+            {
+                value = "0";
+            }
+
+            DEBUG_LOG("sniffer_mysql.c:dispatch_mysql_ResultsetRow() value %s",value.c_str());
+            offset = offset + attrs_len;
+
+            rowset = rowset + value;
+            rowset = rowset + "||";
+        }
+    }
+
+    rowset = rowset.substr(0,rowset.length() - 2);
+    DEBUG_LOG("sniffer_mysql.c:dispatch_mysql_ResultsetRow() rowset %s",rowset.c_str());
+
+    //追加到结果集.
+    cat_sniffer_buf(mysql->rowsets,";;");
+    cat_sniffer_buf(mysql->rowsets,rowset.c_str(),rowset.length());
+    mysql->max_rowset--;
 
     return 0;
 }
 
 uint32_t dispatch_mysql_ResultsetRow_Stmt(sniffer_session *session)
 {
+    uint32_t attrs_len = 0;
+    uint16_t length_len = 0;
+    uint32_t offset = MYSQL_HEAD_LEN;
+
+    char *null_bitmaps = NULL;
+    uint32_t null_bitmap_len = 0;
+    uint32_t column_index = 0;
+    uint8_t bitmap_byte = 0;
+    uint8_t bitmap_bit = 0;
+
+    string rowset = "";
+    string value = "";
+
+    struct st_mysql* mysql = (struct st_mysql*)session->db_features;
+    struct sniffer_buf * buf = mysql->downstream_buf;
+
+    if(mysql->max_rowset < 0)
+    {
+        return 0;
+    }
+
+    //header 1
+    //uint8_t header = buf->buf[offset]&0xff;
+    offset = offset + 1;
+
+    //null_bitmap.
+    null_bitmap_len = (mysql->columns_select + 7 + 2)/8;
+    null_bitmaps = (char*)zmalloc(sizeof(char)*null_bitmap_len);
+    memcpy(null_bitmaps,buf->buf + offset,null_bitmap_len);
+
+    offset = offset + null_bitmap_len;
+
+    for(column_index = 0; column_index < mysql->columns_select;column_index++)
+    {
+        bitmap_byte = (column_index + 2)/8;
+        bitmap_bit = (column_index + 2)%8;
+        
+        //判断该列是否是NULL.
+        if(null_bitmaps[bitmap_byte] & (1 << bitmap_bit))
+        {
+            DEBUG_LOG("sniffer_mysql.cpp:dispatch_mysql_ResultsetRow_Stmt() index %d,NULL",column_index);
+
+            rowset = rowset + "NULL";
+            rowset = rowset + "||";
+            continue;
+        }
+
+        //根据数据类型获取该列数据.
+        switch (mysql->columns_select_type[column_index])
+        {
+            case MYSQL_TYPE_STRING:
+            case MYSQL_TYPE_VAR_STRING:
+            case MYSQL_TYPE_VARCHAR:
+            {
+                length_len = 0;
+                attrs_len = _mysql_lenenc(buf->buf,offset,length_len);
+                if(attrs_len > 0)
+                {
+                    value.append(buf->buf + offset,attrs_len);
+                }
+                else
+                {
+                    value = "0";
+                }
+
+                offset = offset + attrs_len;
+                DEBUG_LOG("sniffer_mysql.cpp:dispatch_mysql_ResultsetRow_Stmt() index %d,%s",column_index,value.c_str());
+                
+                rowset = rowset + value;
+                rowset = rowset + "||";
+                break;
+            }
+
+            case MYSQL_TYPE_LONG:
+            case MYSQL_TYPE_INT24:
+            {
+                uint32_t temp = 0;
+                memcpy(&temp,buf->buf + offset,4);
+
+                offset = offset + 4;
+                DEBUG_LOG("sniffer_mysql.cpp:dispatch_mysql_ResultsetRow_Stmt() index %d,%d",column_index,temp);
+                
+                rowset = rowset + to_string(temp);
+                rowset = rowset + "||";
+                break;
+            }
+            
+            case MYSQL_TYPE_LONGLONG:
+            {
+                uint64_t temp = 0;
+                memcpy(&temp,buf->buf + offset,8);
+                
+                offset = offset + 8;
+                DEBUG_LOG("sniffer_mysql.cpp:dispatch_mysql_ResultsetRow_Stmt() index %d,%d",column_index,temp);
+
+                rowset = rowset + to_string(temp);
+                rowset = rowset + "||";
+                break;
+            }
+
+            case MYSQL_TYPE_SHORT:
+            case MYSQL_TYPE_YEAR:
+            {
+                break;
+            }
+
+            case MYSQL_TYPE_TINY:
+            {
+                break;
+            }
+
+            case MYSQL_TYPE_DOUBLE:
+            {
+                break;
+            }
+
+            case MYSQL_TYPE_FLOAT:
+            {
+                break;
+            }
+
+            case MYSQL_TYPE_TIME:
+            {
+                break;
+            }
+
+            case MYSQL_TYPE_DATE:
+            case MYSQL_TYPE_DATETIME:
+            case MYSQL_TYPE_TIMESTAMP:
+            {
+                break;
+            }
+
+            default:
+            {
+                break;
+            }
+        }
+    }
+
+    zfree(null_bitmaps);
+
+    rowset = rowset.substr(0,rowset.length() - 2);
+    DEBUG_LOG("sniffer_mysql.cpp:dispatch_mysql_ResultsetRow_Stmt() rowset %s",rowset.c_str());
+
+    //追加到结果集.
+    cat_sniffer_buf(mysql->rowsets,";;");
+    cat_sniffer_buf(mysql->rowsets,rowset.c_str(),rowset.length());
+    mysql->max_rowset--;
+
     return 0;
 }
 
-uint32_t dispatch_mysql_ResultsetRow_ColumnDefinition(sniffer_session *session)
+uint32_t dispatch_mysql_ResultsetRow_ColumnDefinition(sniffer_session *session,uint32_t index)
 {
     uint32_t attrs_len = 0;
     uint16_t length_len = 0;
+    uint32_t offset = MYSQL_HEAD_LEN;
+    string tmp = "";
+    string name = "";
 
     struct st_mysql* mysql = (struct st_mysql*)session->db_features;
     struct sniffer_buf * buf = mysql->downstream_buf;
@@ -742,14 +958,88 @@ uint32_t dispatch_mysql_ResultsetRow_ColumnDefinition(sniffer_session *session)
     if(!mysql->isProtocolV41)
     {
         DEBUG_LOG("xProxy_db_mysql.c:dispatch_mysql_ResultsetRow_ColumnDefinition() %s NOT_DEAL","Protocol::ColumnDefinition320");
-        return;
+        return 0;
     }
-    
+
     /*
         Protocol::ColumnDefinition41
 
         需要解析的数据依次为 catalog/schema/table/org_table/name/org_name,数据格式为string<lenenc>
     */
+    //1-catalog
+    attrs_len = _mysql_lenenc((const char*)buf->buf,offset,length_len);
+    if(attrs_len > 0)
+    {
+        tmp.append(buf->buf + offset,attrs_len);
+    }
+    offset = offset + attrs_len;
+
+    //2-schema
+    attrs_len = _mysql_lenenc((const char*)buf->buf,offset,length_len);
+    if(attrs_len > 0)
+    {
+        tmp.append(buf->buf + offset,attrs_len);
+    }
+    offset = offset + attrs_len;
+
+    //3-table
+    attrs_len = _mysql_lenenc((const char*)buf->buf,offset,length_len);
+    if(attrs_len > 0)
+    {
+        tmp.append(buf->buf + offset,attrs_len);
+    }
+    offset = offset + attrs_len;
+
+    //4-org_table
+    attrs_len = _mysql_lenenc((const char*)buf->buf,offset,length_len);
+    if(attrs_len > 0)
+    {
+        tmp.append(buf->buf + offset,attrs_len);
+    }
+    offset = offset + attrs_len;
+
+    //5-name
+    attrs_len = _mysql_lenenc((const char*)buf->buf,offset,length_len);
+    if(attrs_len > 0)
+    {
+        name.append(buf->buf + offset,attrs_len);
+    }
+    offset = offset + attrs_len;
+
+    //6-org_name
+    attrs_len = _mysql_lenenc((const char*)buf->buf,offset,length_len);
+    if(attrs_len > 0)
+    {
+        tmp.append(buf->buf + offset,attrs_len);
+    }
+    offset = offset + attrs_len;
+
+    //length of fixed length fields [0x0c]
+    offset = offset + 1;
+
+    //character_set 2
+    offset = offset + 2;
+
+    //column_length 4
+    offset = offset + 4;
+
+    //type  1
+    uint8_t data_type = (buf->buf[offset]&0xff);
+    offset = offset + 1;
+
+    mysql->columns_select_type[index] = data_type;
+
+    INFO_LOG("xProxy_db_mysql.c:dispatch_mysql_ResultsetRow_ColumnDefinition() name %s,data_type %d",name.c_str(),data_type);
+
+    if(index == (mysql->columns_select - 1))
+    {
+        cat_sniffer_buf(mysql->rowsets,name.c_str(),name.length());
+    }
+    else
+    {
+        cat_sniffer_buf(mysql->rowsets,name.c_str(),name.length());
+        cat_sniffer_buf(mysql->rowsets,"||");
+    }
 
     return 0;
 }

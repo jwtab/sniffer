@@ -183,8 +183,26 @@ void sniffer_sql_log(sniffer_session * sess)
         cJSON_AddItemToObject(pValues,"s_database",cJSON_CreateNull());
     }
 
-    cJSON_AddItemToObject(pValues,"s_body",cJSON_CreateNull());
+    if(sess->db_type == DB_TYPE_MYSQL)
+    {
+        struct st_mysql *mysql = (struct st_mysql*)sess->db_features;
+        if(mysql->affect_rows > 0)
+        {
+            cJSON_AddItemToObject(pValues,"s_body",cJSON_CreateString(mysql->rowsets->buf));
 
+            destroy_sniffer_buf(mysql->rowsets);
+            mysql->rowsets = nullptr;
+        }
+        else
+        {
+            cJSON_AddItemToObject(pValues,"s_body",cJSON_CreateNull());
+        }
+    }
+    else
+    {
+        cJSON_AddItemToObject(pValues,"s_body",cJSON_CreateNull());
+    }
+    
     cJSON_AddItemToObject(pValues,"session_id",cJSON_CreateString(sess->uuid->buf));
     cJSON_AddItemToObject(pValues,"session_time",cJSON_CreateNumber(sniffer_log_time_ms()));
 
@@ -376,6 +394,7 @@ int sniffer_session_add(const char * key,tcp_stream stream)
             //默认使用高级别判断.
             st->isHandshakeV10 = true;
             st->isProtocolV41 = true;
+            st->columns_select_type = nullptr;
 
             st->downstream_buf = init_sniffer_buf(4096);
         }

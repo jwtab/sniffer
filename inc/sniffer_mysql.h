@@ -166,13 +166,16 @@ typedef struct st_mysql
 
 	uint32_t affect_rows;
 
+	//结果集信息.
+	uint32_t max_rowset;
+	struct sniffer_buf *rowsets;
+
 	//绑定变量
 	uint32_t statement_id;
 	uint32_t num_params;
 	uint32_t num_columns;
 	uint16_t num_columns_index;
 	uint16_t *columns_select_type;
-
 
 }ST_MTSQL;
 
@@ -189,6 +192,6 @@ uint32_t dispatch_mysql_DDL_Reponse(struct sniffer_buf *buf,uint32_t offset);
 
 uint32_t dispatch_mysql_ResultsetRow(sniffer_session *session);
 uint32_t dispatch_mysql_ResultsetRow_Stmt(sniffer_session *session);
-uint32_t dispatch_mysql_ResultsetRow_ColumnDefinition(sniffer_session *session);
+uint32_t dispatch_mysql_ResultsetRow_ColumnDefinition(sniffer_session *session,uint32_t index);
 
 #endif //SNIFFER_MYSQL_H_H_

@@ -28,5 +28,6 @@ LOG_TYPE sniffer_cfg_logtype();
 DB_TYPE sniffer_cfg_dbtype();
 string sniffer_cfg_capip();
 string sniffer_cfg_kafka();
+uint32_t sniffer_cfg_max_rowset();
 
 #endif //SNIFFER_CFG_H_
