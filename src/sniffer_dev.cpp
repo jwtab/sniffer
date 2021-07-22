@@ -185,6 +185,8 @@ static void sniffer_dev_dump(const unsigned char * cap_data,int cap_len,dispatch
                     stream.state = NIDS_DATA;
                 }
             #endif
+
+                stream.state = NIDS_DATA;
         }
         else
         {
@@ -208,7 +210,7 @@ int capdev_filter(const char *eth,const char * server_ip,int server_port)
     filter_app = filter_app + " and port ";
     filter_app = filter_app + to_string(server_port);
 
-    g_device = pcap_open_live(eth,65536,1,10,errBuf);
+    g_device = pcap_open_live(eth,65535,1,10,errBuf);
     if(!g_device)  
     {
         FATAL_LOG("sniffer_dev.cpp:capdev_filter(%s) %s",eth,errBuf); 

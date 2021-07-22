@@ -741,7 +741,7 @@ uint32_t dispatch_mysql_ResultsetRow(sniffer_session *session)
     struct st_mysql* mysql = (struct st_mysql*)session->db_features;
     struct sniffer_buf * buf = mysql->downstream_buf;
 
-    if(mysql->max_rowset < 0)
+    if(mysql->max_rowset <= 0)
     {
         return 0;
     }
@@ -807,7 +807,7 @@ uint32_t dispatch_mysql_ResultsetRow_Stmt(sniffer_session *session)
     struct st_mysql* mysql = (struct st_mysql*)session->db_features;
     struct sniffer_buf * buf = mysql->downstream_buf;
 
-    if(mysql->max_rowset < 0)
+    if(mysql->max_rowset <= 0)
     {
         return 0;
     }
@@ -894,26 +894,65 @@ uint32_t dispatch_mysql_ResultsetRow_Stmt(sniffer_session *session)
             case MYSQL_TYPE_SHORT:
             case MYSQL_TYPE_YEAR:
             {
+                uint16_t temp = 0;
+                memcpy(&temp,buf->buf + offset,2);
+                
+                offset = offset + 2;
+                DEBUG_LOG("sniffer_mysql.cpp:dispatch_mysql_ResultsetRow_Stmt() index %d,%d",column_index,temp);
+
+                rowset = rowset + to_string(temp);
+                rowset = rowset + "||";
+
                 break;
             }
 
             case MYSQL_TYPE_TINY:
             {
+                uint8_t temp = 0;
+                memcpy(&temp,buf->buf + offset,1);
+                
+                offset = offset + 1;
+                DEBUG_LOG("sniffer_mysql.cpp:dispatch_mysql_ResultsetRow_Stmt() index %d,%d",column_index,temp);
+
+                rowset = rowset + to_string(temp);
+                rowset = rowset + "||";
                 break;
             }
 
             case MYSQL_TYPE_DOUBLE:
             {
+                char temp[9] = {0};
+                memcpy(&temp,buf->buf + offset,8);
+                
+                offset = offset + 8;
+                DEBUG_LOG("sniffer_mysql.cpp:dispatch_mysql_ResultsetRow_Stmt() index %d,%s",column_index,temp);
+
+                rowset = rowset + temp;
+                rowset = rowset + "||";
+
                 break;
             }
 
             case MYSQL_TYPE_FLOAT:
             {
+                char temp[5] = {0};
+                memcpy(&temp,buf->buf + offset,4);
+                
+                offset = offset + 4;
+                DEBUG_LOG("sniffer_mysql.cpp:dispatch_mysql_ResultsetRow_Stmt() index %d,%s",column_index,temp);
+
+                rowset = rowset + temp;
+                rowset = rowset + "||";
+
                 break;
             }
 
             case MYSQL_TYPE_TIME:
             {
+                DEBUG_LOG("sniffer_mysql.cpp:dispatch_mysql_ResultsetRow_Stmt() index %d,%s",column_index,"N_DEAL");
+                
+                rowset = rowset + "N_DEAL||";
+                offset = offset + (index_sniffer_buf(mysql->downstream_buf,offset)&0xff);
                 break;
             }
 
@@ -921,6 +960,9 @@ uint32_t dispatch_mysql_ResultsetRow_Stmt(sniffer_session *session)
             case MYSQL_TYPE_DATETIME:
             case MYSQL_TYPE_TIMESTAMP:
             {
+                rowset = rowset + "N_DEAL||";
+                offset = offset + (index_sniffer_buf(mysql->downstream_buf,offset)&0xff);
+
                 break;
             }
 
