@@ -160,6 +160,7 @@ typedef struct st_mysql
     struct sniffer_buf * downstream_buf;
 	uint32_t seq_number;
 	uint32_t packet_len;
+	uint32_t down_seq_numbers;
 
 	uint32_t columns_select;
 	uint32_t columns_select_index;

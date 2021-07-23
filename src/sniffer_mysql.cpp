@@ -89,7 +89,8 @@ static void dispatch_data_mysql_upstream_RequestQuery(sniffer_session *session,c
 
         st->max_rowset = sniffer_cfg_max_rowset();
         st->rowsets = init_sniffer_buf(1024);
-
+        st->down_seq_numbers = 0;
+        
         reset_sniffer_buf(st->downstream_buf);
     }
 
@@ -536,6 +537,7 @@ int dispatch_data_mysql_downstream(sniffer_session *session,const char * data,ui
         }
 
         DEBUG_LOG("sniffer_mysql.cpp:dispatch_data_mysql_downstream() _packet_len %d,_sequence_id %d",st->packet_len,st->seq_number);
+        st->down_seq_numbers++;
 
         if(st->query)
         {
@@ -547,6 +549,7 @@ int dispatch_data_mysql_downstream(sniffer_session *session,const char * data,ui
                 reset_sniffer_buf(st->downstream_buf);
 
                 sniffer_sql_log(session);
+                break;
             }
             else if(0xfe == (index_sniffer_buf(st->downstream_buf,offset)&0xff)) //EOF_PACKET.
             {
@@ -606,7 +609,8 @@ int dispatch_data_mysql_downstream(sniffer_session *session,const char * data,ui
             else
             {
                 //select_SQL.
-                if(st->seq_number == 1)
+                if(st->seq_number == 1 &&
+                    st->down_seq_numbers == 1)
                 {
                     st->columns_select = (index_sniffer_buf(st->downstream_buf,offset)&0xff);
                     st->columns_select_index = st->columns_select;
