@@ -10,7 +10,10 @@ static char DB_TYPE_string[DB_TYPE_MAX][64] =
     "Unkown",
     "MySQL",
     "Oracle",
-    "PostgreSQL"
+    "PostgreSQL",
+    "DM",
+    "Informix",
+    "Hive"
 };
 
 static char LOG_TYPE_string[LOG_TYPE_MAX][12] = 
