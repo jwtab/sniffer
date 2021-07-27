@@ -92,7 +92,7 @@ int sniffer_cfg_init(int argc,char **argv)
     g_config.max_rowsets = 5;
 
     int opt = 0;
-    while((opt = getopt(argc, argv, "dhi:p:s:t:l:k:b:r")) != -1 && ret != -1){
+    while((opt = getopt(argc, argv, "dhi:p:s:t:l:k:b:r:")) != -1 && ret != -1){
         switch(opt){
             case 'd':
                 {
@@ -194,7 +194,7 @@ void sniffer_cfg_print()
         "       >db type %d \n"
         "       >kafka address %s \n"
         "       >objectid %d \n"
-        "       >max_rows %d"
+        "       >max_rows %d \n"
         "+++++++++++++++++++++++++++++++++++++ \n"
         ,
         g_config.cap_net.c_str(),
