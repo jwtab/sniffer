@@ -16,6 +16,9 @@ typedef struct sniffer_config
     DB_TYPE db_type;
 
     LOG_TYPE log_type;
+
+    int object_id;
+    int max_rowsets;
 }SNIFFER_CONFIG;
 
 int sniffer_cfg_init(int argc,char **argv);

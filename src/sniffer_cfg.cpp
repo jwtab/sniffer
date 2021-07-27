@@ -13,6 +13,8 @@ static void sniffer_help(const char * name)
             "         -k kafka, Default to 127.0.0.1:9092.\n"
             "         -t dbtype, Default to mysql{mysql\\oracle\\postgresql}.\n"
             "         -l logtype, Default to warn{fatal\\error\\warn\\info\\debug}.\n"
+            "         -b object_id, Default to 100.\n"
+            "         -r max_rowsets, Default to 5.\n"
             ,
             name);
 }
@@ -86,8 +88,11 @@ int sniffer_cfg_init(int argc,char **argv)
     g_config.db_type = DB_TYPE_MYSQL;
     g_config.log_type = LOG_TYPE_WARN;
 
+    g_config.object_id = 100;
+    g_config.max_rowsets = 5;
+
     int opt = 0;
-    while((opt = getopt(argc, argv, "dhi:p:s:t:l:k:")) != -1 && ret != -1){
+    while((opt = getopt(argc, argv, "dhi:p:s:t:l:k:b:r")) != -1 && ret != -1){
         switch(opt){
             case 'd':
                 {
@@ -124,6 +129,17 @@ int sniffer_cfg_init(int argc,char **argv)
                     g_config.kafka = optarg;
                     break;
                 }
+            case 'b':
+                {
+                    g_config.object_id = atol(optarg);
+                    break;
+                }
+            case 'r':
+                {
+                    g_config.max_rowsets = atol(optarg);
+                    break;
+                }
+
             case 'h':
             default:
                 {
@@ -177,6 +193,8 @@ void sniffer_cfg_print()
         "       >daemon mode %d \n"
         "       >db type %d \n"
         "       >kafka address %s \n"
+        "       >objectid %d \n"
+        "       >max_rows %d"
         "+++++++++++++++++++++++++++++++++++++ \n"
         ,
         g_config.cap_net.c_str(),
@@ -184,15 +202,17 @@ void sniffer_cfg_print()
         g_config.cap_ip.c_str(),
         g_config.daemon,
         g_config.db_type,
-        g_config.kafka.c_str());
+        g_config.kafka.c_str(),
+        g_config.object_id,
+        g_config.max_rowsets);
 }
 
 uint32_t sniffer_cfg_max_rowset()
 {
-    return 5;
+    return g_config.max_rowsets;
 }
 
 uint32_t sniffer_cfg_objectid()
 {
-    return 10;
+    return g_config.object_id;
 }
