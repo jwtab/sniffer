@@ -34,21 +34,27 @@ void sniffer_session_log(sniffer_session * sess,bool isNew)
     cJSON_AddItemToObject(pValues,"id",cJSON_CreateString(id));
     cJSON_AddItemToObject(pValues,"pid",cJSON_CreateString(pid));
 
+    cJSON_AddItemToObject(pValues,"object_id",cJSON_CreateNumber(sniffer_cfg_objectid()));
+
     if(sess->from_upstream) //来自服务器端。
     {
         cJSON_AddItemToObject(pValues,"c_ip",cJSON_CreateString(sess->to_ip->buf));
         cJSON_AddItemToObject(pValues,"c_port",cJSON_CreateNumber(sess->to_port));
+        cJSON_AddItemToObject(pValues,"c_mac",cJSON_CreateString(sess->to_mac->buf));
 
         cJSON_AddItemToObject(pValues,"s_ip",cJSON_CreateString(sess->from_ip->buf));
         cJSON_AddItemToObject(pValues,"s_port",cJSON_CreateNumber(sess->from_port));
+        cJSON_AddItemToObject(pValues,"s_mac",cJSON_CreateString(sess->from_mac->buf));
     }
     else
     {
         cJSON_AddItemToObject(pValues,"s_ip",cJSON_CreateString(sess->to_ip->buf));
         cJSON_AddItemToObject(pValues,"s_port",cJSON_CreateNumber(sess->to_port));
+        cJSON_AddItemToObject(pValues,"s_mac",cJSON_CreateString(sess->to_mac->buf));
 
         cJSON_AddItemToObject(pValues,"c_ip",cJSON_CreateString(sess->from_ip->buf));
         cJSON_AddItemToObject(pValues,"c_port",cJSON_CreateNumber(sess->from_port));
+        cJSON_AddItemToObject(pValues,"c_mac",cJSON_CreateString(sess->from_mac->buf));
     }
 
     if(sess->login_user)
@@ -59,6 +65,41 @@ void sniffer_session_log(sniffer_session * sess,bool isNew)
     {
         cJSON_AddItemToObject(pValues,"username",cJSON_CreateNull());
     }
+
+    if(sess->os_user)
+    {
+        cJSON_AddItemToObject(pValues,"c_os_user",cJSON_CreateString(sess->os_user->buf));
+    }
+    else
+    {
+        cJSON_AddItemToObject(pValues,"c_os_user",cJSON_CreateNull());
+    }
+
+    if(sess->os_info)
+    {
+        cJSON_AddItemToObject(pValues,"c_os",cJSON_CreateString(sess->os_info->buf));
+    }
+    else
+    {
+        cJSON_AddItemToObject(pValues,"c_os",cJSON_CreateNull());
+    }
+
+    if(sess->client_info)
+    {
+        cJSON_AddItemToObject(pValues,"c_client",cJSON_CreateString(sess->client_info->buf));
+    }
+    else
+    {
+        cJSON_AddItemToObject(pValues,"c_client",cJSON_CreateNull());
+    }
+
+    //三层审计相关.
+    cJSON_AddItemToObject(pValues,"t_have",cJSON_CreateFalse());
+    cJSON_AddItemToObject(pValues,"t_ip",cJSON_CreateNull());
+    cJSON_AddItemToObject(pValues,"t_port",cJSON_CreateNull());
+    cJSON_AddItemToObject(pValues,"t_mac",cJSON_CreateNull());
+    cJSON_AddItemToObject(pValues,"t_user",cJSON_CreateNull());
+    cJSON_AddItemToObject(pValues,"t_type",cJSON_CreateNull());
 
     cJSON_AddItemToObject(pValues,"s_body",cJSON_CreateNull());
 
@@ -89,6 +130,9 @@ void sniffer_session_log(sniffer_session * sess,bool isNew)
     cJSON_AddItemToObject(pValues,"exe_time",cJSON_CreateNumber(sess->op_end - sess->op_start));
 
     cJSON_AddItemToObject(pValues,"sql_string",cJSON_CreateNull());
+
+    cJSON_AddItemToObject(pValues,"op_type",cJSON_CreateNull());
+    cJSON_AddItemToObject(pValues,"op_object",cJSON_CreateNull());
 
     if(isNew)
     {
@@ -148,21 +192,62 @@ void sniffer_sql_log(sniffer_session * sess)
     cJSON_AddItemToObject(pValues,"id",cJSON_CreateString(id));
     cJSON_AddItemToObject(pValues,"pid",cJSON_CreateString(pid));
 
+    cJSON_AddItemToObject(pValues,"object_id",cJSON_CreateNumber(sniffer_cfg_objectid()));
+
     if(sess->from_upstream) //来自服务器端。
     {
         cJSON_AddItemToObject(pValues,"c_ip",cJSON_CreateString(sess->to_ip->buf));
         cJSON_AddItemToObject(pValues,"c_port",cJSON_CreateNumber(sess->to_port));
+        cJSON_AddItemToObject(pValues,"c_mac",cJSON_CreateString(sess->to_mac->buf));
 
         cJSON_AddItemToObject(pValues,"s_ip",cJSON_CreateString(sess->from_ip->buf));
         cJSON_AddItemToObject(pValues,"s_port",cJSON_CreateNumber(sess->from_port));
+        cJSON_AddItemToObject(pValues,"s_mac",cJSON_CreateString(sess->from_mac->buf));
     }
     else
     {
         cJSON_AddItemToObject(pValues,"s_ip",cJSON_CreateString(sess->to_ip->buf));
         cJSON_AddItemToObject(pValues,"s_port",cJSON_CreateNumber(sess->to_port));
+        cJSON_AddItemToObject(pValues,"s_mac",cJSON_CreateString(sess->to_mac->buf));
 
         cJSON_AddItemToObject(pValues,"c_ip",cJSON_CreateString(sess->from_ip->buf));
         cJSON_AddItemToObject(pValues,"c_port",cJSON_CreateNumber(sess->from_port));
+        cJSON_AddItemToObject(pValues,"c_mac",cJSON_CreateString(sess->from_mac->buf));
+    }
+
+    //三层审计相关.
+    cJSON_AddItemToObject(pValues,"t_have",cJSON_CreateFalse());
+    cJSON_AddItemToObject(pValues,"t_ip",cJSON_CreateNull());
+    cJSON_AddItemToObject(pValues,"t_port",cJSON_CreateNull());
+    cJSON_AddItemToObject(pValues,"t_mac",cJSON_CreateNull());
+    cJSON_AddItemToObject(pValues,"t_user",cJSON_CreateNull());
+    cJSON_AddItemToObject(pValues,"t_type",cJSON_CreateNull());
+    
+    if(sess->os_user)
+    {
+        cJSON_AddItemToObject(pValues,"c_os_user",cJSON_CreateString(sess->os_user->buf));
+    }
+    else
+    {
+        cJSON_AddItemToObject(pValues,"c_os_user",cJSON_CreateNull());
+    }
+
+    if(sess->os_info)
+    {
+        cJSON_AddItemToObject(pValues,"c_os",cJSON_CreateString(sess->os_info->buf));
+    }
+    else
+    {
+        cJSON_AddItemToObject(pValues,"c_os",cJSON_CreateNull());
+    }
+
+    if(sess->client_info)
+    {
+        cJSON_AddItemToObject(pValues,"c_client",cJSON_CreateString(sess->client_info->buf));
+    }
+    else
+    {
+        cJSON_AddItemToObject(pValues,"c_client",cJSON_CreateNull());
     }
 
     if(sess->login_user)
@@ -188,10 +273,21 @@ void sniffer_sql_log(sniffer_session * sess)
         struct st_mysql *mysql = (struct st_mysql*)sess->db_features;
         if(mysql->affect_rows > 0)
         {
-            cJSON_AddItemToObject(pValues,"s_body",cJSON_CreateString(mysql->rowsets->buf));
+            cJSON_AddItemToObject(pValues,"s_body",mysql->select_body);
+            if(mysql->columns_select_name)
+            {
+                for(uint32_t i = 0; i < mysql->columns_select; i++)
+                {
+                    if(mysql->columns_select_name[i])
+                    {
+                        destroy_sniffer_buf(mysql->columns_select_name[i]);
+                        mysql->columns_select_name[i] = NULL;
+                    }
+                }
 
-            destroy_sniffer_buf(mysql->rowsets);
-            mysql->rowsets = nullptr;
+                zfree(mysql->columns_select_name);
+                mysql->columns_select_name = NULL;
+            }
         }
         else
         {
@@ -223,6 +319,9 @@ void sniffer_sql_log(sniffer_session * sess)
     {
         cJSON_AddItemToObject(pValues,"sql_string",cJSON_CreateNull());
     }
+
+    cJSON_AddItemToObject(pValues,"op_type",cJSON_CreateNull());
+    cJSON_AddItemToObject(pValues,"op_object",cJSON_CreateNull());
 
     cJSON_AddItemToObject(pValues,"err_code",cJSON_CreateNumber(sess->err_code));
 
@@ -302,6 +401,7 @@ static void sniffer_session_delete(sniffer_session * sess)
 
         destroy_sniffer_buf(sess->current_sql);
         destroy_sniffer_buf(sess->os_info);
+        destroy_sniffer_buf(sess->os_user);
         destroy_sniffer_buf(sess->client_info);
 
         if(sess->db_features)
@@ -377,6 +477,10 @@ int sniffer_session_add(const char * key,tcp_stream stream)
     sess->to_port = stream.to_port;
     sess->to_mac = init_sniffer_buf(stream.to_mac.c_str());
     
+    sess->os_info = NULL;
+    sess->os_user = NULL;
+    sess->client_info = NULL;
+
     if(sess->db_type == DB_TYPE_MYSQL)
     {
         INFO_LOG("sniffer_sess.cpp:sniffer_session_add() new_session db_type %s","MySQL");

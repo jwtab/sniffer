@@ -49,6 +49,7 @@ typedef struct sniffer_session
 
     sniffer_buf *os_info;
     sniffer_buf *client_info;
+    sniffer_buf *os_user;
 
     dispatch_data data_fun;
     

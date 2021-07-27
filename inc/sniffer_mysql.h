@@ -164,12 +164,13 @@ typedef struct st_mysql
 
 	uint32_t columns_select;
 	uint32_t columns_select_index;
+	struct sniffer_buf **columns_select_name;
 
 	uint32_t affect_rows;
 
 	//结果集信息.
 	uint32_t max_rowset;
-	struct sniffer_buf *rowsets;
+	cJSON * select_body;
 
 	//绑定变量
 	uint32_t statement_id;

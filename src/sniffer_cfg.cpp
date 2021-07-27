@@ -191,3 +191,8 @@ uint32_t sniffer_cfg_max_rowset()
 {
     return 5;
 }
+
+uint32_t sniffer_cfg_objectid()
+{
+    return 10;
+}
