@@ -203,17 +203,43 @@ void Dump_TNS_Connect(sniffer_session *session,const char * data,uint32_t len)
             INFO_LOG("sniffer_oracle.cpp:Dump_TNS_Connect() connect_data SID %s",_current_sid.c_str());
         }
     }
-    else
+
+    start_pos = tmp.find("service_name=");
+    if(string::npos != start_pos)
     {
-        start_pos = tmp.find("service_name=");
-        if(string::npos != start_pos)
+        stop_pos = tmp.find_first_of(")",start_pos);
+        if(string::npos != stop_pos)
         {
-            stop_pos = tmp.find_first_of(")",start_pos);
-            if(string::npos != stop_pos)
-            {
-                _current_sid = connect_data.substr(start_pos + 13,stop_pos - start_pos - 13);
-                INFO_LOG("sniffer_oracle.cpp:Dump_TNS_Connect() connect_data Service_Name %s",_current_sid.c_str());
-            }
+            _current_sid = connect_data.substr(start_pos + 13,stop_pos - start_pos - 13);
+            INFO_LOG("sniffer_oracle.cpp:Dump_TNS_Connect() connect_data Service_Name %s",_current_sid.c_str());
+        }
+    }
+
+    //PROGRAM
+    start_pos = tmp.find("program=");
+    if(string::npos != start_pos)
+    {
+        stop_pos = tmp.find_first_of(")",start_pos);
+        if(string::npos != stop_pos)
+        {
+            string temp = connect_data.substr(start_pos + 8,stop_pos - start_pos - 8);
+            INFO_LOG("sniffer_oracle.cpp:Dump_TNS_Connect() connect_data PROGRAM %s",temp.c_str());
+
+            session->client_info = init_sniffer_buf(temp.c_str());
+        }
+    }
+
+    //USER
+    start_pos = tmp.find("user=");
+    if(string::npos != start_pos)
+    {
+        stop_pos = tmp.find_first_of(")",start_pos);
+        if(string::npos != stop_pos)
+        {
+            string temp = connect_data.substr(start_pos + 5,stop_pos - start_pos - 5);
+            INFO_LOG("sniffer_oracle.cpp:Dump_TNS_Connect() connect_data USER %s",temp.c_str());
+
+            session->os_user = init_sniffer_buf(temp.c_str());
         }
     }
 
