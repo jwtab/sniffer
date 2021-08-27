@@ -171,6 +171,8 @@ uint32_t xProxy_oracle_upstream(struct sniffer_session *session, const char * pa
     //开始时间
     session->op_start = sniffer_log_time_ms();
     proxy_oracle->max_rowset = sniffer_cfg_max_rowset();
+    proxy_oracle->fetch_a_row = 0;
+
     switch (proxy_oracle->_tns_header.packet_type)
     {
         case TNS_TYPE_CONNECT:
@@ -545,6 +547,7 @@ void xProxy_oracle_TNS_Data_0x03(struct sniffer_session * session,uint32_t offse
         */
         case 0x05:
         {
+            oracle->fetch_a_row = 1;
             xProxy_oracle_TNS_Data_0x03_0x05(session,offset);
             break;
         }
@@ -647,8 +650,6 @@ void xProxy_oracle_TNS_Data_0x06(struct sniffer_session * session,uint32_t offse
         offset = offset + 0x30;
         offset = xProxy_oracle_TNS_Data_0x10_DATA(session,offset);
     }
-
-    ////xProxy_oracle_TNS_Data_0x10_DATA(oracle,offset);
 }
 
 //create user/grant to/revoke from/create table/insert into/update/delete 返回信息.

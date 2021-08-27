@@ -172,8 +172,6 @@ typedef struct st_oracle
 
     uint8_t from_upstream;
 
-    uint8_t logined;
-
     //TNS_HEADER 要提前转化位主机字节序.
     struct tns_header _tns_header;
 
@@ -181,9 +179,12 @@ typedef struct st_oracle
     uint16_t dataID_query;
     uint16_t callID_query;
     
+    //结果集信息.
     uint32_t affect_rows;
     uint32_t max_rowset;
 	cJSON * select_body;
+
+    uint8_t fetch_a_row;
 
     uint32_t columns_select;
     uint16_t *columns_select_type;
