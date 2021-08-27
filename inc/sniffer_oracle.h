@@ -181,14 +181,19 @@ typedef struct st_oracle
     uint16_t dataID_query;
     uint16_t callID_query;
     
+    uint32_t affect_rows;
+    uint32_t max_rowset;
+	cJSON * select_body;
+
     uint32_t columns_select;
     uint16_t *columns_select_type;
-}ST_ORACLE;
+    struct sniffer_buf **columns_select_name;
+}ST_ORACLE,*LPST_ORACLE;
 
 /*
     对外函数.
 */
-int dispatch_data_oracle(struct sniffer_session *session,const char * data,uint32_t data_len);
+int dispatch_data_oracle(sniffer_session *session,const char * data,uint32_t data_len);
 uint32_t xProxy_oracle_upstream(struct sniffer_session *session, const char * payload,uint32_t payload_len);
 uint32_t xProxy_oracle_downstream(struct sniffer_session *session, const char * payload,uint32_t payload_len);
 
@@ -201,37 +206,37 @@ uint32_t xProxy_oracle_downstream(struct sniffer_session *session, const char * 
 */
 uint32_t xProxy_oracle_ParseHead(struct st_oracle * oracle,struct xProxy_buf * buf);
 
-void xProxy_oracle_TNS_Connect(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Data(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Connect(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Data(struct sniffer_session *session,uint32_t offset);
 
-void xProxy_oracle_TNS_Accept(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Redirect(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Resend(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Refuse(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Marker(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Accept(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Redirect(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Resend(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Refuse(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Marker(struct sniffer_session *session,uint32_t offset);
 
-void xProxy_oracle_TNS_Data_0x01(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Data_0x02(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Data_0x03(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Data_0x04(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Data_0x06(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Data_0x08(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Data_0x09(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Data_0x10(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Data_0x10_1(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Data_0x10_2(struct st_oracle * oracle,uint32_t offset);
-uint32_t xProxy_oracle_TNS_Data_0x10_DATA(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Data_0x11(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x01(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x02(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x03(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x04(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x06(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x08(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x09(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x10(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x10_1(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x10_2(struct sniffer_session *session,uint32_t offset);
+uint32_t xProxy_oracle_TNS_Data_0x10_DATA(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x11(struct sniffer_session *session,uint32_t offset);
 
-void xProxy_oracle_TNS_Data_0x03_0x05(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Data_0x03_0x0e(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Data_0x03_0x3b(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Data_0x03_0x76(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Data_0x03_0x73(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Data_0x03_0x5e(struct st_oracle * oracle,uint32_t offset);
-void xProxy_oracle_TNS_Data_0x03_0x5e_Len_0(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x03_0x05(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x03_0x0e(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x03_0x3b(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x03_0x76(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x03_0x73(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x03_0x5e(struct sniffer_session *session,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x03_0x5e_Len_0(struct sniffer_session *session,uint32_t offset);
 
-void xProxy_oracle_TNS_Data_0x03_0x4e(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x03_0x4e(struct sniffer_session *session,uint32_t offset);
 
 //
 void xProxy_oracle_DataAnalyse(struct sniffer_buf* data_src,enum TNS_COLUMN_TYPE data_type,struct sniffer_buf *data_string);

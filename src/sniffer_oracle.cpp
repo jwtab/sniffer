@@ -1,6 +1,7 @@
 
 #include <sniffer_oracle.h>
 #include <sniffer_log.h>
+#include <sniffer_cfg.h>
 
 #include <ctype.h>
 #include <arpa/inet.h>
@@ -131,7 +132,17 @@ uint32_t xProxy_oracle_ParseHead(struct st_oracle * oracle,struct sniffer_buf * 
     return ORACLE_HEAD_LEN;
 }
 
-uint32_t xProxy_oracle_upstream(struct sniffer_session *session, u_char * payload,uint32_t payload_len)
+int dispatch_data_oracle(sniffer_session *session,const char * data,uint32_t data_len)
+{
+    if(session->from_upstream)
+    {
+        return xProxy_oracle_downstream(session,data,data_len);
+    }
+
+    return xProxy_oracle_upstream(session,data,data_len);;
+}
+
+uint32_t xProxy_oracle_upstream(struct sniffer_session *session, const char * payload,uint32_t payload_len)
 {
     uint32_t offset = 0;
     struct st_oracle * proxy_oracle = (struct st_oracle *)session->db_features;
@@ -159,23 +170,24 @@ uint32_t xProxy_oracle_upstream(struct sniffer_session *session, u_char * payloa
 
     //开始时间
     session->op_start = sniffer_log_time_ms();
+    proxy_oracle->max_rowset = sniffer_cfg_max_rowset();
     switch (proxy_oracle->_tns_header.packet_type)
     {
         case TNS_TYPE_CONNECT:
         {
-            xProxy_oracle_TNS_Connect(proxy_oracle,offset);
+            xProxy_oracle_TNS_Connect(session,offset);
             break;
         }
 
         case TNS_TYPE_DATA:
         {
-            xProxy_oracle_TNS_Data(proxy_oracle,offset);
+            xProxy_oracle_TNS_Data(session,offset);
             break;
         }
 
         case TNS_TYPE_MARKER:
         {
-            xProxy_oracle_TNS_Marker(proxy_oracle,offset);
+            xProxy_oracle_TNS_Marker(session,offset);
             break;
         }
 
@@ -191,7 +203,7 @@ uint32_t xProxy_oracle_upstream(struct sniffer_session *session, u_char * payloa
     return 0;
 }
 
-uint32_t xProxy_oracle_downstream(struct sniffer_session *session, u_char * payload,uint32_t payload_len)
+uint32_t xProxy_oracle_downstream(struct sniffer_session *session, const char * payload,uint32_t payload_len)
 {
     uint32_t offset = 0;
     struct st_oracle * proxy_oracle = (struct st_oracle *)session->db_features;
@@ -216,42 +228,43 @@ uint32_t xProxy_oracle_downstream(struct sniffer_session *session, u_char * payl
     }
 
     DEBUG_LOG("sniffer_oracle.cpp:xProxy_oracle_downstream() packet_type %s",G_TNS_TYPE_NAME[proxy_oracle->_tns_header.packet_type]);
+    session->op_end = sniffer_log_time_ms();
     switch (proxy_oracle->_tns_header.packet_type)
     {
         case TNS_TYPE_REDIRECT:
         {
-            xProxy_oracle_TNS_Redirect(proxy_oracle,offset);
+            xProxy_oracle_TNS_Redirect(session,offset);
             break;
         }
 
         case TNS_TYPE_ACCEPT:
         {
-            xProxy_oracle_TNS_Accept(proxy_oracle,offset);
+            xProxy_oracle_TNS_Accept(session,offset);
             break;
         }
 
         case TNS_TYPE_DATA:
         {
-            xProxy_oracle_TNS_Data(proxy_oracle,offset);
+            xProxy_oracle_TNS_Data(session,offset);
             break;
         }
 
         case TNS_TYPE_RESEND:
         {
-            xProxy_oracle_TNS_Resend(proxy_oracle,offset);
+            xProxy_oracle_TNS_Resend(session,offset);
             break;
         }
 
         case TNS_TYPE_REFUSE:
         {
             //SID错误时返回信息.
-            xProxy_oracle_TNS_Refuse(proxy_oracle,offset);
+            xProxy_oracle_TNS_Refuse(session,offset);
             break;
         }
 
         case TNS_TYPE_MARKER:
         {
-            xProxy_oracle_TNS_Marker(proxy_oracle,offset);
+            xProxy_oracle_TNS_Marker(session,offset);
             break;
         }
 
@@ -267,7 +280,7 @@ uint32_t xProxy_oracle_downstream(struct sniffer_session *session, u_char * payl
     return 0;
 }
 
-void xProxy_oracle_TNS_Connect(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Connect(struct sniffer_session *session,uint32_t offset)
 {
     /*
         格式
@@ -276,7 +289,13 @@ void xProxy_oracle_TNS_Connect(struct st_oracle * oracle,uint32_t offset)
         SID:
             (DESCRIPTION=(CONNECT_DATA=(SID=orcl)(CID=(PROGRAM=SQL Developer)(HOST=__jdbc__)(USER=xxx)))(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.56.201)(PORT=1521)))
     */
-    struct sniffer_buf * connect_data = NULL;
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
+    string connect_data = "";
+    string tmp = "";
+    string _current_sid = "";
+
+    size_t start_pos = string::npos;
+    size_t stop_pos = string::npos;
 
     struct tns_connect connect;
     uint32_t connect_len = sizeof(struct tns_connect);
@@ -293,38 +312,93 @@ void xProxy_oracle_TNS_Connect(struct st_oracle * oracle,uint32_t offset)
     INFO_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Connect() connect_data pos %d len %d",
             connect.connect_data_pos,connect.connect_data_len);
 
-    connect_data = init_sniffer_buf(connect.connect_data_len + 2);
+    for(uint32_t i = 0; i < connect.connect_data_len; i++)
+    {
+        connect_data.push_back(index_sniffer_buf(buf,connect.connect_data_pos + i));
+    }
 
-    cat_sniffer_buf(connect_data, buf->buf + connect.connect_data_pos,connect.connect_data_len);
+    tmp = connect_data;
+    transform(tmp.begin(), tmp.end(), tmp.begin(), ::tolower);
+    
+    start_pos = tmp.find("sid=");
+    if(string::npos != start_pos)
+    {
+        stop_pos = tmp.find_first_of(")",start_pos);
+        if(string::npos != stop_pos)
+        {
+            _current_sid = connect_data.substr(start_pos + 4,stop_pos - start_pos - 4);
+            INFO_LOG("sniffer_oracle.cpp:Dump_TNS_Connect() connect_data SID %s",_current_sid.c_str());
+        }
+    }
 
-    INFO_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Connect() connect_data %s",connect_data->buf);
+    start_pos = tmp.find("service_name=");
+    if(string::npos != start_pos)
+    {
+        stop_pos = tmp.find_first_of(")",start_pos);
+        if(string::npos != stop_pos)
+        {
+            _current_sid = connect_data.substr(start_pos + 13,stop_pos - start_pos - 13);
+            INFO_LOG("sniffer_oracle.cpp:Dump_TNS_Connect() connect_data Service_Name %s",_current_sid.c_str());
+        }
+    }
 
-    destroy_sniffer_buf(connect_data);
-    connect_data = NULL;
+    //PROGRAM
+    start_pos = tmp.find("program=");
+    if(string::npos != start_pos)
+    {
+        stop_pos = tmp.find_first_of(")",start_pos);
+        if(string::npos != stop_pos)
+        {
+            string temp = connect_data.substr(start_pos + 8,stop_pos - start_pos - 8);
+            INFO_LOG("sniffer_oracle.cpp:Dump_TNS_Connect() connect_data PROGRAM %s",temp.c_str());
+
+            session->client_info = init_sniffer_buf(temp.c_str());
+        }
+    }
+
+    //USER
+    start_pos = tmp.find("user=");
+    if(string::npos != start_pos)
+    {
+        stop_pos = tmp.find_first_of(")",start_pos);
+        if(string::npos != stop_pos)
+        {
+            string temp = connect_data.substr(start_pos + 5,stop_pos - start_pos - 5);
+            INFO_LOG("sniffer_oracle.cpp:Dump_TNS_Connect() connect_data USER %s",temp.c_str());
+
+            session->os_user = init_sniffer_buf(temp.c_str());
+        }
+    }
+
+    if(_current_sid.length() > 0)
+    {
+        session->login_with_schema = init_sniffer_buf(_current_sid.c_str(),_current_sid.length());
+    }
 }
 
-void xProxy_oracle_TNS_Accept(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Accept(struct sniffer_session * session,uint32_t offset)
 {
     DEBUG_LOG("sniffer_oracle.cpp:%s()","xProxy_oracle_TNS_Accept");
 }
 
-void xProxy_oracle_TNS_Redirect(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Redirect(struct sniffer_session * session,uint32_t offset)
 {
     DEBUG_LOG("sniffer_oracle.cpp:%s()","xProxy_oracle_TNS_Redirect");
 }
 
-void xProxy_oracle_TNS_Resend(struct xProxy_feature_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Resend(struct sniffer_session * session,uint32_t offset)
 {
     DEBUG_LOG("sniffer_oracle.cpp:%s()","xProxy_oracle_TNS_Resend");
 }
 
 //oracle sid写错.
-void xProxy_oracle_TNS_Refuse(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Refuse(struct sniffer_session * session,uint32_t offset)
 {
     /*
         数据如下格式:
         (DESCRIPTION=(TMP=)(VSNNUM=186647552)(ERR=12514)(ERROR_STACK=(ERROR=(CODE=12514)(EMFI=4))))
     */
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
     uint8_t refuse_reason_user = 0;
     uint8_t refuse_reason_system = 0;
     uint16_t refuse_data_length = 0;
@@ -355,13 +429,14 @@ void xProxy_oracle_TNS_Refuse(struct st_oracle * oracle,uint32_t offset)
     err_msg = NULL;
 }
 
-void xProxy_oracle_TNS_Marker(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Marker(struct sniffer_session * session,uint32_t offset)
 {
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
     INFO_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Marker() %s Marker",
         oracle->from_upstream?"Response":"Request");
 }
 
-void xProxy_oracle_TNS_Data_0x01(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x01(struct sniffer_session * session,uint32_t offset)
 {
     /*  
             Set Protocol具体协议
@@ -378,6 +453,7 @@ void xProxy_oracle_TNS_Data_0x01(struct st_oracle * oracle,uint32_t offset)
             #Server Banner  ...... 0x00
             #Data
     */
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
     uint8_t from_upstream = oracle->from_upstream;
     struct sniffer_buf * buf = from_upstream?oracle->downstream_buf:oracle->upstream_buf;
     struct sniffer_buf * banner = init_sniffer_buf(128);
@@ -404,12 +480,12 @@ void xProxy_oracle_TNS_Data_0x01(struct st_oracle * oracle,uint32_t offset)
     banner = NULL;
 }
 
-void xProxy_oracle_TNS_Data_0x02(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x02(struct sniffer_session * session,uint32_t offset)
 {
     DEBUG_LOG("sniffer_oracle.cpp:%s()","xProxy_oracle_TNS_Data_0x02");
 }
 
-void xProxy_oracle_TNS_Data_0x03(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x03(struct sniffer_session * session,uint32_t offset)
 {
     /*
         0x03包
@@ -419,6 +495,7 @@ void xProxy_oracle_TNS_Data_0x03(struct st_oracle * oracle,uint32_t offset)
             #Call id
             #Data ......
     */
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
     uint16_t callID = (index_sniffer_buf(oracle->upstream_buf,offset)&0xff);
     offset = offset + 1;
 
@@ -433,28 +510,28 @@ void xProxy_oracle_TNS_Data_0x03(struct st_oracle * oracle,uint32_t offset)
         //Get the session key.
         case 0x76:
         {
-            xProxy_oracle_TNS_Data_0x03_0x76(oracle,offset);
+            xProxy_oracle_TNS_Data_0x03_0x76(session,offset);
             break;
         }
 
         //Generic authentication call.
         case 0x73:
         {
-            xProxy_oracle_TNS_Data_0x03_0x73(oracle,offset);
+            xProxy_oracle_TNS_Data_0x03_0x73(session,offset);
             break;
         }
 
         //SQL || SQL Prepare.
         case 0x5e:
         {
-            xProxy_oracle_TNS_Data_0x03_0x5e(oracle,offset);
+            xProxy_oracle_TNS_Data_0x03_0x5e(session,offset);
             break;
         }
 
         //SQL Prepare Execute and Fetch.
         case 0x4e:
         {
-            xProxy_oracle_TNS_Data_0x03_0x4e(oracle,offset);
+            xProxy_oracle_TNS_Data_0x03_0x4e(session,offset);
             break;
         }
 
@@ -468,21 +545,21 @@ void xProxy_oracle_TNS_Data_0x03(struct st_oracle * oracle,uint32_t offset)
         */
         case 0x05:
         {
-            xProxy_oracle_TNS_Data_0x03_0x05(oracle,offset);
+            xProxy_oracle_TNS_Data_0x03_0x05(session,offset);
             break;
         }
 
         //Get Oracle version-date string in new format.
         case 0x3b:
         {
-            xProxy_oracle_TNS_Data_0x03_0x3b(oracle,offset);
+            xProxy_oracle_TNS_Data_0x03_0x3b(session,offset);
             break;
         }
 
         //Commit.
         case 0x0e:
         {
-            xProxy_oracle_TNS_Data_0x03_0x0e(oracle,offset);
+            xProxy_oracle_TNS_Data_0x03_0x0e(session,offset);
             break;
         }
 
@@ -496,10 +573,12 @@ void xProxy_oracle_TNS_Data_0x03(struct st_oracle * oracle,uint32_t offset)
 /*
     用户名密码错误\SQL语句错误\Fetch a row时，返回错误信息/结束标志.
 */
-void xProxy_oracle_TNS_Data_0x04(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x04(struct sniffer_session * session,uint32_t offset)
 {
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
     struct sniffer_buf * buf = oracle->downstream_buf;
     struct sniffer_buf *data = init_sniffer_buf(32);
+    string err_code = "";
 
     //找到ORA-开始的字符串.前面是长度.
     uint16_t data_len = 0x00;
@@ -521,14 +600,24 @@ void xProxy_oracle_TNS_Data_0x04(struct st_oracle * oracle,uint32_t offset)
     cat_sniffer_buf(data,(buf->buf + offset),data_len);
 
     INFO_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Data_0x04() offset %d,data %s",offset - 1,(data->buf));
+    err_code = data->buf;
 
-    if(0x03 == oracle->dataID_query && 0x73 == oracle->dataID_query)
+    err_code = err_code.substr(4);
+    err_code = err_code.substr(0,err_code.find(":"));
+
+    if(0x03 == oracle->dataID_query && 0x73 == oracle->callID_query)
     {
         //登录失败.
+        session->err_code = atol(err_code.c_str());
+        session->err_msg = init_sniffer_buf(data->buf,data_len);
+        sniffer_session_log(session,true);
     }
-    else if(0x03 == oracle->dataID_query && 0x5e == oracle->dataID_query)
+    else if(0x03 == oracle->dataID_query && 0x5e == oracle->callID_query)
     {
         //SQL语句执行失败.
+        session->err_code = atol(err_code.c_str());
+        session->err_msg = init_sniffer_buf(data->buf,data_len);
+        sniffer_sql_log(session);
     }
 
     destroy_sniffer_buf(data);
@@ -538,8 +627,9 @@ void xProxy_oracle_TNS_Data_0x04(struct st_oracle * oracle,uint32_t offset)
 /*
     Fetch a row的数据加上 xProxy_oracle_TNS_Data_0x04.
 */
-void xProxy_oracle_TNS_Data_0x06(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x06(struct sniffer_session * session,uint32_t offset)
 {
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
     struct sniffer_buf * buf = oracle->downstream_buf;
 
     /*
@@ -555,17 +645,17 @@ void xProxy_oracle_TNS_Data_0x06(struct st_oracle * oracle,uint32_t offset)
         DEBUG_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Data_0x06() Have Data %s","");
 
         offset = offset + 0x30;
-        offset = xProxy_oracle_TNS_Data_0x10_DATA(oracle,offset);
+        offset = xProxy_oracle_TNS_Data_0x10_DATA(session,offset);
     }
 
     ////xProxy_oracle_TNS_Data_0x10_DATA(oracle,offset);
 }
 
 //create user/grant to/revoke from/create table/insert into/update/delete 返回信息.
-void xProxy_oracle_TNS_Data_0x08(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x08(struct sniffer_session * session,uint32_t offset)
 {
     DEBUG_LOG("sniffer_oracle.cpp:%s()","xProxy_oracle_TNS_Data_0x08");
-
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
     if(0x03 != oracle->dataID_query)
     {
         DEBUG_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Data_0x08() NOT_DEAL dataID 0x%02x",oracle->dataID_query);
@@ -579,6 +669,8 @@ void xProxy_oracle_TNS_Data_0x08(struct st_oracle * oracle,uint32_t offset)
     else if(0x73 == oracle->callID_query)
     {
         //登录成功.
+        session->err_code = 0;
+        sniffer_session_log(session,true);
     }
     else if(0x3b == oracle->callID_query)
     {
@@ -586,18 +678,26 @@ void xProxy_oracle_TNS_Data_0x08(struct st_oracle * oracle,uint32_t offset)
     }
     else if(0x5e == oracle->callID_query)
     {
+        //SQL语句成功.
+        session->err_code = 0;
+        
+        //结果集信息. update/insert/delete的影响行数暂未解析.
+        oracle->affect_rows = 1;
+        oracle->select_body = NULL;
 
+        sniffer_sql_log(session);
     }
 }
 
-void xProxy_oracle_TNS_Data_0x09(struct xProxy_feature_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x09(struct sniffer_session * session,uint32_t offset)
 {
     DEBUG_LOG("sniffer_oracle.cpp:%s()","xProxy_oracle_TNS_Data_0x09");
 }
 
 //Decribe Information. select返回结果集.
-void xProxy_oracle_TNS_Data_0x10(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x10(struct sniffer_session * session,uint32_t offset)
 {
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
     struct sniffer_buf * buf = oracle->downstream_buf;
 
     /*
@@ -610,17 +710,18 @@ void xProxy_oracle_TNS_Data_0x10(struct st_oracle * oracle,uint32_t offset)
         0x00 == index_sniffer_buf(buf,offset + 2) &&
         0x00 == index_sniffer_buf(buf,offset + 3))
     {
-        return xProxy_oracle_TNS_Data_0x10_1(oracle,offset);
+        return xProxy_oracle_TNS_Data_0x10_1(session,offset);
     }
     //JDBC类工具.
     else if(0x17 == index_sniffer_buf(buf,offset))
     {
-        return xProxy_oracle_TNS_Data_0x10_2(oracle,offset);
+        return xProxy_oracle_TNS_Data_0x10_2(session,offset);
     }
 }
 
-void xProxy_oracle_TNS_Data_0x10_1(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x10_1(struct sniffer_session * session,uint32_t offset)
 {
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
     struct sniffer_buf * buf = oracle->downstream_buf;
     uint32_t columns_pos = 0;
     uint32_t columns = 0;
@@ -711,7 +812,7 @@ void xProxy_oracle_TNS_Data_0x10_1(struct st_oracle * oracle,uint32_t offset)
     }
     else
     {
-        offset = xProxy_oracle_TNS_Data_0x10_DATA(oracle,offset);
+        offset = xProxy_oracle_TNS_Data_0x10_DATA(session,offset);
     }
 
     /*
@@ -719,8 +820,9 @@ void xProxy_oracle_TNS_Data_0x10_1(struct st_oracle * oracle,uint32_t offset)
     */
 }
 
-void xProxy_oracle_TNS_Data_0x10_2(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x10_2(struct sniffer_session * session,uint32_t offset)
 {
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
     struct sniffer_buf * buf = oracle->downstream_buf;
     uint32_t columns_pos = 0;
     uint32_t columns = 0;
@@ -855,7 +957,7 @@ void xProxy_oracle_TNS_Data_0x10_2(struct st_oracle * oracle,uint32_t offset)
     }
     else
     {
-        offset = xProxy_oracle_TNS_Data_0x10_DATA(oracle,offset);
+        offset = xProxy_oracle_TNS_Data_0x10_DATA(session,offset);
     }
 
     /*
@@ -863,8 +965,9 @@ void xProxy_oracle_TNS_Data_0x10_2(struct st_oracle * oracle,uint32_t offset)
     */
 }
 
-uint32_t xProxy_oracle_TNS_Data_0x10_DATA(struct st_oracle * oracle,uint32_t offset)
+uint32_t xProxy_oracle_TNS_Data_0x10_DATA(struct sniffer_session * session,uint32_t offset)
 {
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
     struct sniffer_buf *buf = oracle->downstream_buf;
     uint32_t show_columns = 0;
 
@@ -987,7 +1090,7 @@ uint32_t xProxy_oracle_TNS_Data_0x10_DATA(struct st_oracle * oracle,uint32_t off
     return offset;
 }
 
-void xProxy_oracle_TNS_Data_0x11(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x11(struct sniffer_session * session,uint32_t offset)
 {
     /*
         0x11包 包含0x03 0x5e
@@ -997,6 +1100,7 @@ void xProxy_oracle_TNS_Data_0x11(struct st_oracle * oracle,uint32_t offset)
             #Call id
             #Data ......
     */
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
     struct sniffer_buf * buf = oracle->from_upstream?oracle->downstream_buf:oracle->upstream_buf;
 
     while(offset < (len_sniffer_buf(buf) - 1))
@@ -1014,7 +1118,7 @@ void xProxy_oracle_TNS_Data_0x11(struct st_oracle * oracle,uint32_t offset)
                 oracle->dataID_query = 0x03;
             }
 
-            xProxy_oracle_TNS_Data_0x03(oracle,offset);
+            xProxy_oracle_TNS_Data_0x03(session,offset);
             break;
         }
         else
@@ -1025,8 +1129,9 @@ void xProxy_oracle_TNS_Data_0x11(struct st_oracle * oracle,uint32_t offset)
 }
 
 //Get the session key.
-void xProxy_oracle_TNS_Data_0x03_0x76(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x03_0x76(struct sniffer_session * session,uint32_t offset)
 {
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
     struct sniffer_buf * user_name = init_sniffer_buf(128);
     struct sniffer_buf * buf = oracle->upstream_buf;
 
@@ -1057,13 +1162,16 @@ void xProxy_oracle_TNS_Data_0x03_0x76(struct st_oracle * oracle,uint32_t offset)
 
     INFO_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Data_0x03_0x76() user_name %s",(user_name->buf));
 
+    session->login_user = init_sniffer_buf(user_name->buf,user_name->used);
+
     destroy_sniffer_buf(user_name);
     user_name = NULL;
 }
 
 //Generic authentication call.
-void xProxy_oracle_TNS_Data_0x03_0x73(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x03_0x73(struct sniffer_session * session,uint32_t offset)
 {
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
     struct sniffer_buf * user_name = init_sniffer_buf(128);
     struct sniffer_buf * buf = oracle->upstream_buf;
 
@@ -1099,8 +1207,9 @@ void xProxy_oracle_TNS_Data_0x03_0x73(struct st_oracle * oracle,uint32_t offset)
 }
 
 //SQL
-void xProxy_oracle_TNS_Data_0x03_0x5e(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x03_0x5e(struct sniffer_session * session,uint32_t offset)
 {
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
     struct sniffer_buf * buf = oracle->from_upstream?oracle->downstream_buf:oracle->upstream_buf;
     uint32_t sql_len = 0;
     struct sniffer_buf *sql = NULL;
@@ -1114,7 +1223,7 @@ void xProxy_oracle_TNS_Data_0x03_0x5e(struct st_oracle * oracle,uint32_t offset)
     INFO_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Data_0x03_0x5e() offset %d,tns_len_type %d",(offset - 1),tns_len_type);
     if(TNS_0x03_0x5e_Len_0 == tns_len_type)
     {
-        xProxy_oracle_TNS_Data_0x03_0x5e_Len_0(oracle,offset);
+        xProxy_oracle_TNS_Data_0x03_0x5e_Len_0(session,offset);
         return;
     }
     else if(TNS_0x03_0x5e_Len_1 == tns_len_type)
@@ -1151,28 +1260,31 @@ void xProxy_oracle_TNS_Data_0x03_0x5e(struct st_oracle * oracle,uint32_t offset)
     sql = init_sniffer_buf(sql_len + 1);
     cat_sniffer_buf(sql,(buf->buf + offset),sql_len);
 
+    session->current_sql = init_sniffer_buf(sql->buf,sql_len);
+
     DEBUG_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Data_0x03_0x5e() sql %s,sql_len %d",(sql->buf),sql_len);
     destroy_sniffer_buf(sql);
     sql = NULL;
 }
 
-void xProxy_oracle_TNS_Data_0x03_0x05(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x03_0x05(struct sniffer_session * session,uint32_t offset)
 {
     DEBUG_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Data_0x03_0x05() %s","Fecth a row");
 }
 
-void xProxy_oracle_TNS_Data_0x03_0x0e(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x03_0x0e(struct sniffer_session * session,uint32_t offset)
 {
     DEBUG_LOG("sniffer_oracle.cpp:%s()","xProxy_oracle_TNS_Data_0x03_0x0e");
 }
 
-void xProxy_oracle_TNS_Data_0x03_0x3b(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x03_0x3b(struct sniffer_session * session,uint32_t offset)
 {
     DEBUG_LOG("sniffer_oracle.cpp:%s()","xProxy_oracle_TNS_Data_0x03_0x3b");
 }
 
-void xProxy_oracle_TNS_Data_0x03_0x5e_Len_0(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x03_0x5e_Len_0(struct sniffer_session * session,uint32_t offset)
 {
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
     struct sniffer_buf * sql = init_sniffer_buf(64);
     struct sniffer_buf * buf = oracle->upstream_buf;
     uint32_t i = 0;
@@ -1230,17 +1342,19 @@ void xProxy_oracle_TNS_Data_0x03_0x5e_Len_0(struct st_oracle * oracle,uint32_t o
 
     INFO_LOG("sniffer_oracle.cpp::xProxy_oracle_TNS_Data_0x03_0x5e_Len_0() sql %s",sql->buf);
 
+    session->current_sql = init_sniffer_buf(sql->buf,sql->used);
     destroy_sniffer_buf(sql);
     sql = NULL;
 }
 
-void xProxy_oracle_TNS_Data_0x03_0x4e(struct xProxy_feature_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data_0x03_0x4e(struct sniffer_session * session,uint32_t offset)
 {
 
 }
 
-void xProxy_oracle_TNS_Data(struct st_oracle * oracle,uint32_t offset)
+void xProxy_oracle_TNS_Data(struct sniffer_session * session,uint32_t offset)
 {
+    struct st_oracle * oracle = (struct st_oracle *)session->db_features;
     //Data flag 0x00 0x00 [2]
     uint16_t quit_flag = 0;
     struct sniffer_buf *buf = NULL;
@@ -1278,21 +1392,21 @@ void xProxy_oracle_TNS_Data(struct st_oracle * oracle,uint32_t offset)
         //Set Protocol.
         case 0x01:
         {
-            xProxy_oracle_TNS_Data_0x01(oracle,offset);
+            xProxy_oracle_TNS_Data_0x01(session,offset);
             break;
         }
 
         //Set Datatypes.
         case 0x02:
         {
-            xProxy_oracle_TNS_Data_0x02(oracle,offset);
+            xProxy_oracle_TNS_Data_0x02(session,offset);
             break;
         }
 
         //SQL语句
         case 0x03:
         {
-            xProxy_oracle_TNS_Data_0x03(oracle,offset);
+            xProxy_oracle_TNS_Data_0x03(session,offset);
             break;
         }
 
@@ -1300,7 +1414,7 @@ void xProxy_oracle_TNS_Data(struct st_oracle * oracle,uint32_t offset)
         case 0x04:
         {
             //用户名密码\SQL语句错误时，返回错误信息.
-            xProxy_oracle_TNS_Data_0x04(oracle,offset);
+            xProxy_oracle_TNS_Data_0x04(session,offset);
             break;
         }
         
@@ -1308,21 +1422,21 @@ void xProxy_oracle_TNS_Data(struct st_oracle * oracle,uint32_t offset)
         case 0x06:
         {
             //Data_0x03_0x05的返回值.
-            xProxy_oracle_TNS_Data_0x06(oracle,offset);
+            xProxy_oracle_TNS_Data_0x06(session,offset);
             break;
         }
 
         //Return OPI Parameter.
         case 0x08:
         {
-            xProxy_oracle_TNS_Data_0x08(oracle,offset);
+            xProxy_oracle_TNS_Data_0x08(session,offset);
             break;
         }
 
         //Function Complete
         case 0x09:
         {
-            xProxy_oracle_TNS_Data_0x09(oracle,offset);
+            xProxy_oracle_TNS_Data_0x09(session,offset);
             break;
         }
 
@@ -1330,14 +1444,14 @@ void xProxy_oracle_TNS_Data(struct st_oracle * oracle,uint32_t offset)
         case 0x10:
         {
             //返回结果集.
-            xProxy_oracle_TNS_Data_0x10(oracle,offset);
+            xProxy_oracle_TNS_Data_0x10(session,offset);
             break;
         }
 
         //可能包含0x03 0x5e
         case 0x11:
         {
-            xProxy_oracle_TNS_Data_0x11(oracle,offset);
+            xProxy_oracle_TNS_Data_0x11(session,offset);
             break;
         }
 
