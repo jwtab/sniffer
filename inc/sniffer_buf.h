@@ -43,6 +43,9 @@ uint32_t cat_sniffer_buf(sniffer_buf * dest,const char * data,uint32_t len);
 uint32_t rePosition_sniffer_buf(struct sniffer_buf *buf,uint32_t start);
 uint32_t reset_sniffer_buf(struct sniffer_buf *buf);
 
+char * buf_sniffer_buf(struct sniffer_buf * buf,int offset);
+uint32_t pushback_sniffer_buf(struct sniffer_buf *buf,char c);
+
 void destroy_sniffer_buf(sniffer_buf * dest);
 
 #endif //SNIFFER_BUF_H_H_

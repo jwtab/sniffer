@@ -13,7 +13,15 @@
     int<2> Header checksum 0x00 0x00 
 */
 
-const uint16_t ORACLE_HEAD_LEN = 8;
+#define ORACLE_HEAD_LEN 8
+#define G_ROWID_TABLE_LEN 64
+
+#define ORA_ROWID_64_0 0
+#define ORA_ROWID_64_1 64
+#define ORA_ROWID_64_2 4096
+#define ORA_ROWID_64_3 262144UL
+#define ORA_ROWID_64_4 16777216UL
+#define ORA_ROWID_64_5 1073741824UL
 
 /*
     TNS packet type.
@@ -41,6 +49,25 @@ enum TNS_0x03_0x5e_Len_Type {
     TNS_0x03_0x5e_Len_0 = 0x00,
     TNS_0x03_0x5e_Len_1 = 0x01,
     TNS_0x03_0x5e_Len_2 = 0x02
+};
+
+enum TNS_COLUMN_TYPE {
+    TNS_COLUMN_TYPE_UNKNOWN		    = 0x00,
+	TNS_COLUMN_TYPE_VARCHAR2		= 0x01,
+	TNS_COLUMN_TYPE_NUMBER			= 0x02,
+	TNS_COLUMN_TYPE_ROWNUM			= 0x06,
+	TNS_COLUMN_TYPE_LONG			= 0x08,
+	TNS_COLUMN_TYPE_ROWID			= 0x0b,
+	TNS_COLUMN_TYPE_DATE			= 0x0c,
+	TNS_COLUMN_TYPE_SDO_DIM_ELEMENT = 0x17,
+	TNS_COLUMN_TYPE_CHAR			= 0x60,
+	TNS_COLUMN_TYPE_BINARY_FLOAT	= 0x64,
+	TNS_COLUMN_TYPE_BINARY_DOUBLE	= 0x65,
+	TNS_COLUMN_TYPE_SDO_DIM_ARRAY	= 0x6d,
+	TNS_COLUMN_TYPE_CLOB			= 0x70,
+	TNS_COLUMN_TYPE_BLOB			= 0x71,
+	TNS_COLUMN_TYPE_BFILE			= 0x72,
+	TNS_COLUMN_TYPE_TIMESTAMP		= 0xb4
 };
 
 /*
@@ -137,33 +164,78 @@ typedef struct tns_connect
 
 */
 
+
 typedef struct st_oracle
 {
-    bool query;
+    struct sniffer_buf * upstream_buf;
+    struct sniffer_buf * downstream_buf;
 
-    //上下行数据.
+    uint8_t from_upstream;
+
+    uint8_t logined;
+
+    //TNS_HEADER 要提前转化位主机字节序.
+    struct tns_header _tns_header;
+
+    //具体请求类型.
+    uint16_t dataID_query;
+    uint16_t callID_query;
+    
+    uint32_t columns_select;
+    uint16_t *columns_select_type;
 }ST_ORACLE;
 
-int dispatch_data_oracle(sniffer_session *session,const char * data,uint32_t data_len);
+/*
+    对外函数.
+*/
+int dispatch_data_oracle(struct sniffer_session *session,const char * data,uint32_t data_len);
+uint32_t xProxy_oracle_upstream(struct sniffer_session *session, const char * payload,uint32_t payload_len);
+uint32_t xProxy_oracle_downstream(struct sniffer_session *session, const char * payload,uint32_t payload_len);
 
-int dispatch_data_oracle_upstream(sniffer_session *session,const char * data,uint32_t data_len);
-int dispatch_data_oracle_downstream(sniffer_session *session,const char * data,uint32_t data_len);
+/*
+    功能辅助函数.
+*/
 
-//辅助函数.
-//upstream 去掉头的数据和对应的长度.
-void Dump_TNS_Connect(sniffer_session *session,const char * data,uint32_t len);
-void Dump_TNS_Data(sniffer_session *session,const char * data,uint32_t len);
+/*
+	解析Oracle协议头.
+*/
+uint32_t xProxy_oracle_ParseHead(struct st_oracle * oracle,struct xProxy_buf * buf);
 
-void Dump_TNS_Data_0x01(sniffer_session *session,const char * data,uint32_t len);
-void Dump_TNS_Data_0x02(sniffer_session *session,const char * data,uint32_t len);
-void Dump_TNS_Data_0x03(sniffer_session *session,const char * data,uint32_t len);
-void Dump_TNS_Data_0x11(sniffer_session *session,const char * data,uint32_t len);
+void xProxy_oracle_TNS_Connect(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data(struct st_oracle * oracle,uint32_t offset);
 
-void Dump_TNS_Data_0x03_0x76(sniffer_session *session,const char * data,uint32_t len);
-void Dump_TNS_Data_0x03_0x73(sniffer_session *session,const char * data,uint32_t len);
-void Dump_TNS_Data_0x03_0x5e(sniffer_session *session,const char * data,uint32_t len);
-void Dump_TNS_Data_0x03_0x5e_Len_0(sniffer_session *session,const char * data,uint32_t len);
+void xProxy_oracle_TNS_Accept(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Redirect(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Resend(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Refuse(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Marker(struct st_oracle * oracle,uint32_t offset);
 
-void Dump_TNS_Data_0x03_0x4e(sniffer_session *session,const char * data,uint32_t len);
+void xProxy_oracle_TNS_Data_0x01(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x02(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x03(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x04(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x06(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x08(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x09(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x10(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x10_1(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x10_2(struct st_oracle * oracle,uint32_t offset);
+uint32_t xProxy_oracle_TNS_Data_0x10_DATA(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x11(struct st_oracle * oracle,uint32_t offset);
+
+void xProxy_oracle_TNS_Data_0x03_0x05(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x03_0x0e(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x03_0x3b(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x03_0x76(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x03_0x73(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x03_0x5e(struct st_oracle * oracle,uint32_t offset);
+void xProxy_oracle_TNS_Data_0x03_0x5e_Len_0(struct st_oracle * oracle,uint32_t offset);
+
+void xProxy_oracle_TNS_Data_0x03_0x4e(struct st_oracle * oracle,uint32_t offset);
+
+//
+void xProxy_oracle_DataAnalyse(struct sniffer_buf* data_src,enum TNS_COLUMN_TYPE data_type,struct sniffer_buf *data_string);
+
+void xProxy_db_oracle_ROWID(struct sniffer_buf * src,struct sniffer_buf*str,int mode);
 
 #endif //SNIFFER_ORACLE_H_H_

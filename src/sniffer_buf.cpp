@@ -141,3 +141,39 @@ uint32_t reset_sniffer_buf(struct sniffer_buf *buf)
 
     return buf->size;
 }
+
+char * buf_sniffer_buf(struct sniffer_buf * buf,int offset)
+{
+    return buf->buf + offset;
+}
+
+uint32_t pushback_sniffer_buf(struct sniffer_buf *buf,char c)
+{
+    if(left_sniffer_buf(buf) <= 0)
+    {
+        uint32_t size = size_sniffer_buf(buf) + 64;
+
+        char * dest = (char*)zmalloc(sizeof(char)*(size));
+        if(dest)
+        {
+            memcpy(dest,buf->buf,len_sniffer_buf(buf));
+            
+            //释放之前的空间.
+            char * temp = buf->buf;
+            buf->buf = dest;
+
+            if(temp)
+            {
+                zfree(temp);
+                temp = NULL;
+            }
+        }
+    }
+
+    //放到最后位置.
+    buf->buf[buf->used] = c;
+    
+    buf->used++;
+
+    return buf->used;
+}

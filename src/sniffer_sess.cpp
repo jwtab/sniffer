@@ -324,7 +324,6 @@ void sniffer_sql_log(sniffer_session * sess)
     cJSON_AddItemToObject(pValues,"op_object",cJSON_CreateNull());
 
     cJSON_AddItemToObject(pValues,"err_code",cJSON_CreateNumber(sess->err_code));
-
     if(sess->err_msg && sess->err_code > 0)
     {
         cJSON_AddItemToObject(pValues,"err_msg",cJSON_CreateString(sess->err_msg->buf));
@@ -512,7 +511,15 @@ int sniffer_session_add(const char * key,tcp_stream stream)
         sess->data_fun = dispatch_data_oracle;
 
         st_oracle * st = (struct st_oracle*)zmalloc(sizeof(struct st_oracle));
-        st->query = false;
+
+        st->upstream_buf = init_sniffer_buf(256);
+        st->downstream_buf = init_sniffer_buf(256);
+
+        st->dataID_query = 0;
+        st->callID_query = 0;
+
+        st->columns_select = 0;
+        st->logined = 0;
 
         sess->db_features = (void*)st;
     }
