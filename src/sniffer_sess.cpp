@@ -137,7 +137,7 @@ void sniffer_session_log(sniffer_session * sess,bool isNew)
     if(isNew)
     {
         cJSON_AddItemToObject(pValues,"err_code",cJSON_CreateNumber(sess->err_code));
-        if(sess->err_msg)
+        if(sess->err_msg && sess->err_code > 0)
         {
             cJSON_AddItemToObject(pValues,"err_msg",cJSON_CreateString(sess->err_msg->buf));
         }
@@ -325,7 +325,7 @@ void sniffer_sql_log(sniffer_session * sess)
 
     cJSON_AddItemToObject(pValues,"err_code",cJSON_CreateNumber(sess->err_code));
 
-    if(sess->err_msg)
+    if(sess->err_msg && sess->err_code > 0)
     {
         cJSON_AddItemToObject(pValues,"err_msg",cJSON_CreateString(sess->err_msg->buf));
     }
