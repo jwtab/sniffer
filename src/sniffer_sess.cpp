@@ -294,6 +294,32 @@ void sniffer_sql_log(sniffer_session * sess)
             cJSON_AddItemToObject(pValues,"s_body",cJSON_CreateNull());
         }
     }
+    else if(sess->db_type == DB_TYPE_ORACLE)
+    {
+        struct st_oracle *oracle = (struct st_oracle*)sess->db_features;
+        if(oracle->affect_rows > 0)
+        {
+            cJSON_AddItemToObject(pValues,"s_body",oracle->select_body);
+            if(oracle->columns_select_name)
+            {
+                for(uint32_t i = 0; i < oracle->columns_select; i++)
+                {
+                    if(oracle->columns_select_name[i])
+                    {
+                        destroy_sniffer_buf(oracle->columns_select_name[i]);
+                        oracle->columns_select_name[i] = NULL;
+                    }
+                }
+
+                zfree(oracle->columns_select_name);
+                oracle->columns_select_name = NULL;
+            }
+        }
+        else
+        {
+            cJSON_AddItemToObject(pValues,"s_body",cJSON_CreateNull());
+        }
+    }
     else
     {
         cJSON_AddItemToObject(pValues,"s_body",cJSON_CreateNull());
@@ -498,7 +524,7 @@ int sniffer_session_add(const char * key,tcp_stream stream)
             st->isHandshakeV10 = true;
             st->isProtocolV41 = true;
             st->columns_select_type = nullptr;
-
+            
             st->downstream_buf = init_sniffer_buf(4096);
         }
 
@@ -519,7 +545,8 @@ int sniffer_session_add(const char * key,tcp_stream stream)
         st->callID_query = 0;
 
         st->columns_select = 0;
-        st->logined = 0;
+        st->columns_select_type = NULL;
+        st->columns_select_name = NULL;
 
         sess->db_features = (void*)st;
     }
