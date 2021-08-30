@@ -1020,6 +1020,11 @@ uint32_t xProxy_oracle_TNS_Data_0x10_DATA(struct sniffer_session * session,uint3
             if(0x07 != index_sniffer_buf(buf,offset))
             {
                 WARN_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Data_0x10_DATA() NOT_ROWSET %s","");
+                if(0 == oracle->affect_rows)
+                {
+                    sniffer_sql_log(session);
+                }
+
                 return offset;
             }
         }
@@ -1346,7 +1351,7 @@ void xProxy_oracle_TNS_Data_0x03_0x3b(struct sniffer_session * session,uint32_t 
 void xProxy_oracle_TNS_Data_0x03_0x5e_Len_0(struct sniffer_session * session,uint32_t offset)
 {
     struct st_oracle * oracle = (struct st_oracle *)session->db_features;
-    struct sniffer_buf * sql = init_sniffer_buf(64);
+    struct sniffer_buf * sql = init_sniffer_buf(1024);
     struct sniffer_buf * buf = oracle->upstream_buf;
     uint32_t i = 0;
 
@@ -1409,10 +1414,10 @@ void xProxy_oracle_TNS_Data_0x03_0x5e_Len_0(struct sniffer_session * session,uin
         }
     }
 
-    INFO_LOG("sniffer_oracle.cpp::xProxy_oracle_TNS_Data_0x03_0x5e_Len_0() sql %s",sql->buf);
-
     //记录SQL语句.
-    session->current_sql = init_sniffer_buf(sql->buf);
+    session->current_sql = init_sniffer_buf(sql->buf,sql->used);
+
+    INFO_LOG("sniffer_oracle.cpp::xProxy_oracle_TNS_Data_0x03_0x5e_Len_0() sql %s",sql->buf);
 
     destroy_sniffer_buf(sql);
     sql = NULL;
