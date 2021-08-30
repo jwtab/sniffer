@@ -363,6 +363,10 @@ void sniffer_sql_log(sniffer_session * sess)
     {
         cJSON_AddItemToObject(pValues,"effect_rows",cJSON_CreateNumber(((struct st_mysql*)sess->db_features)->affect_rows));
     }
+    else if(sess->db_type == DB_TYPE_ORACLE)
+    {
+        cJSON_AddItemToObject(pValues,"effect_rows",cJSON_CreateNumber(((struct st_oracle*)sess->db_features)->affect_rows));
+    }
     else
     {
         cJSON_AddItemToObject(pValues,"effect_rows",cJSON_CreateNumber(0));

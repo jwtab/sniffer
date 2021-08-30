@@ -170,7 +170,6 @@ uint32_t xProxy_oracle_upstream(struct sniffer_session *session, const char * pa
 
     //开始.
     proxy_oracle->max_rowset = 0;
-    proxy_oracle->select_body = cJSON_CreateArray();
     proxy_oracle->fetch_a_row = 0;
 
     switch (proxy_oracle->_tns_header.packet_type)
@@ -607,22 +606,37 @@ void xProxy_oracle_TNS_Data_0x04(struct sniffer_session * session,uint32_t offse
     INFO_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Data_0x04() offset %d,data %s",offset - 1,(data->buf));
     err_code = data->buf;
 
-    err_code = err_code.substr(4);
-    err_code = err_code.substr(0,err_code.find(":"));
+    //没有错误信息.
+    if(err_code.length() > 4)
+    {
+        err_code = err_code.substr(4);
+        err_code = err_code.substr(0,err_code.find(":"));
 
-    if(0x03 == oracle->dataID_query && 0x73 == oracle->callID_query)
-    {
-        //登录失败.
-        session->err_code = atol(err_code.c_str());
-        session->err_msg = init_sniffer_buf(data->buf,data_len);
-        sniffer_session_log(session,true);
-    }
-    else if(0x03 == oracle->dataID_query && 0x5e == oracle->callID_query)
-    {
-        //SQL语句执行失败.
-        session->err_code = atol(err_code.c_str());
-        session->err_msg = init_sniffer_buf(data->buf,data_len);
-        sniffer_sql_log(session);
+        if(0x03 == oracle->dataID_query && 0x73 == oracle->callID_query)
+        {
+            //登录失败.
+            session->err_code = atol(err_code.c_str());
+            session->err_msg = init_sniffer_buf(data->buf,data_len);
+            sniffer_session_log(session,true);
+        }
+        else if(0x03 == oracle->dataID_query && 0x5e == oracle->callID_query)
+        {
+            //SQL语句执行失败.
+            session->err_code = atol(err_code.c_str());
+            session->err_msg = init_sniffer_buf(data->buf,data_len);
+            sniffer_sql_log(session);
+        }
+        else if(0x03 == oracle->dataID_query && 0x05 == oracle->callID_query)
+        {
+            //只有少量数据.
+            session->err_code = atol(err_code.c_str());
+            session->err_msg = init_sniffer_buf(data->buf,data_len);
+            if(1403 == session->err_code)
+            {
+                session->err_code = 0;
+                sniffer_sql_log(session);
+            }
+        }
     }
 
     destroy_sniffer_buf(data);
@@ -892,6 +906,7 @@ void xProxy_oracle_TNS_Data_0x10_2(struct sniffer_session * session,uint32_t off
     DEBUG_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Data_0x10_2() select_columns %d",columns);
 
     oracle->columns_select_type = (uint16_t*)zmalloc(sizeof(uint16_t)*columns);
+    oracle->columns_select_name = (struct sniffer_buf**)zmalloc(columns*sizeof(struct sniffer_buf*));
     oracle->columns_select = columns;
 
     //跳过标记. 0x51
@@ -941,10 +956,11 @@ void xProxy_oracle_TNS_Data_0x10_2(struct sniffer_session * session,uint32_t off
         INFO_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Data_0x10_2() index %d,type %d,len %d,name %s",
                 column_index,column_name_type,column_name_len,(column_name->buf));
         
+        oracle->columns_select_type[column_index] = column_name_type;
+        oracle->columns_select_name[column_index] = init_sniffer_buf(column_name->buf,column_name->used);
+
         destroy_sniffer_buf(column_name);
         column_name = NULL;
-
-        oracle->columns_select_type[column_index] = column_name_type;
     }
 
     /*
@@ -1094,8 +1110,8 @@ uint32_t xProxy_oracle_TNS_Data_0x10_DATA(struct sniffer_session * session,uint3
             column_string = init_sniffer_buf(10);
             xProxy_oracle_DataAnalyse(data_stream,(enum TNS_COLUMN_TYPE)oracle->columns_select_type[column_index],column_string);
 
-            INFO_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Data_0x10_DATA() column_index %d,src_len %d,column_data_string %s",
-                        column_index,data_stream_len,(column_string->buf));
+            INFO_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Data_0x10_DATA() column_index %d,src_len %d,column_data_string %s,max_rowset %d",
+                        column_index,data_stream_len,(column_string->buf),oracle->max_rowset);
             
             if(oracle->max_rowset < sniffer_cfg_max_rowset())
             {
@@ -1112,8 +1128,12 @@ uint32_t xProxy_oracle_TNS_Data_0x10_DATA(struct sniffer_session * session,uint3
         }
 
         //记录结果集加1.
+        if(oracle->max_rowset < sniffer_cfg_max_rowset())
+        {
+            cJSON_AddItemToArray(oracle->select_body,row_item);
+        }
+
         oracle->max_rowset++;
-        cJSON_AddItemToArray(oracle->select_body,row_item);
     }
     
     return offset;
@@ -1252,6 +1272,8 @@ void xProxy_oracle_TNS_Data_0x03_0x5e(struct sniffer_session * session,uint32_t 
         oracle->columns_select_type = nullptr;
     }
 
+    oracle->select_body = cJSON_CreateArray();
+
     //偏移一个固定的位置.
     offset = offset + 6;
 
@@ -1365,11 +1387,19 @@ void xProxy_oracle_TNS_Data_0x03_0x5e_Len_0(struct sniffer_session * session,uin
     }
     else if(0x40 == len_pos_pre)
     {
-        while(index_sniffer_buf(buf,offset) != 0x00)
+        //分段式sql
+        do
         {
-            pushback_sniffer_buf(sql,index_sniffer_buf(buf,offset));
-            offset++;
-        }
+            cat_sniffer_buf(sql,buf->buf + offset,len_pos_pre);
+            offset = offset + len_pos_pre;
+
+            len_pos_pre = index_sniffer_buf(buf,offset);
+            offset = offset + 1;
+            if(0x00 == len_pos_pre)
+            {
+                break;
+            }
+        } while (1);
     }
     else if(0x40 < len_pos_pre)
     {
@@ -1382,7 +1412,7 @@ void xProxy_oracle_TNS_Data_0x03_0x5e_Len_0(struct sniffer_session * session,uin
     INFO_LOG("sniffer_oracle.cpp::xProxy_oracle_TNS_Data_0x03_0x5e_Len_0() sql %s",sql->buf);
 
     //记录SQL语句.
-    session->current_sql = init_sniffer_buf(sql->buf,sql->used);
+    session->current_sql = init_sniffer_buf(sql->buf);
 
     destroy_sniffer_buf(sql);
     sql = NULL;
