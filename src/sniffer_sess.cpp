@@ -166,7 +166,7 @@ void sniffer_session_log(sniffer_session * sess,bool isNew)
 
     cJSON_AddItemToObject(root,"id",cJSON_CreateString(id));
     cJSON_AddItemToObject(root,"pid",cJSON_CreateString(pid));
-    
+
     sniffer_kafka_body(root);
 
     cJSON_Delete(root);
@@ -274,7 +274,8 @@ void sniffer_sql_log(sniffer_session * sess)
     if(sess->db_type == DB_TYPE_MYSQL)
     {
         struct st_mysql *mysql = (struct st_mysql*)sess->db_features;
-        if(mysql->affect_rows > 0)
+        if(mysql->affect_rows > 0 &&
+            mysql->columns_select > 0)
         {
             cJSON_AddItemToObject(pValues,"s_body",mysql->select_body);
             if(mysql->columns_select_name)
@@ -300,7 +301,8 @@ void sniffer_sql_log(sniffer_session * sess)
     else if(sess->db_type == DB_TYPE_ORACLE)
     {
         struct st_oracle *oracle = (struct st_oracle*)sess->db_features;
-        if(oracle->affect_rows > 0)
+        if(oracle->affect_rows > 0 &&
+            oracle->columns_select > 0)
         {
             cJSON_AddItemToObject(pValues,"s_body",oracle->select_body);
             if(oracle->columns_select_name)
