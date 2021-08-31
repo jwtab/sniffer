@@ -164,6 +164,9 @@ void sniffer_session_log(sniffer_session * sess,bool isNew)
     cJSON_AddItemToObject(root,"timestamp",cJSON_CreateNumber(sniffer_log_time_ms()));
     cJSON_AddItemToObject(root,"propertyValues",pValues);
 
+    cJSON_AddItemToObject(root,"id",cJSON_CreateString(id));
+    cJSON_AddItemToObject(root,"pid",cJSON_CreateString(pid));
+    
     sniffer_kafka_body(root);
 
     cJSON_Delete(root);
@@ -381,6 +384,9 @@ void sniffer_sql_log(sniffer_session * sess)
     cJSON_AddItemToObject(root,"value",cJSON_CreateNumber(1.0));
     cJSON_AddItemToObject(root,"timestamp",cJSON_CreateNumber(sniffer_log_time_ms()));
     cJSON_AddItemToObject(root,"propertyValues",pValues);
+
+    cJSON_AddItemToObject(root,"id",cJSON_CreateString(id));
+    cJSON_AddItemToObject(root,"pid",cJSON_CreateString(pid));
 
     sniffer_kafka_body(root);
 
