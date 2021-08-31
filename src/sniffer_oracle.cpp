@@ -663,7 +663,20 @@ void xProxy_oracle_TNS_Data_0x06(struct sniffer_session * session,uint32_t offse
     {
         DEBUG_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Data_0x06() Have Data %s","");
 
-        offset = offset + 0x30;
+        offset = offset + 3;
+        while(offset < len_sniffer_buf(buf))
+        {
+            if(0x07 == (index_sniffer_buf(buf,offset)&0xff) &&
+                0x00 == (index_sniffer_buf(buf,offset - 1)&0xff) && 
+                0x00 == (index_sniffer_buf(buf,offset - 2)&0xff) &&
+                0x00 == (index_sniffer_buf(buf,offset - 3)&0xff))
+            {
+                break;
+            }
+
+            offset = offset + 1;
+        }
+
         offset = xProxy_oracle_TNS_Data_0x10_DATA(session,offset);
     }
 
@@ -794,17 +807,37 @@ void xProxy_oracle_TNS_Data_0x10_1(struct sniffer_session * session,uint32_t off
     */
     for(column_index = 0;column_index < columns; column_index++)
     {
-        //固定.
-        offset = offset + 1;
+        //Windows 
+        if(0x00 == (index_sniffer_buf(buf,offset + 1)&0xff) ||
+            0x80 == (index_sniffer_buf(buf,offset + 1)&0xff))
+        {
+            //数据类型.
+            column_name_type = (index_sniffer_buf(buf,offset)&0xff);
+            offset = offset + 2;
+        }
+        else
+        {
+            //固定.
+            offset = offset + 1;
 
-        //数据类型.
-        column_name_type = (index_sniffer_buf(buf,offset)&0xff);
-        offset = offset + 1;
+            //数据类型.
+            column_name_type = (index_sniffer_buf(buf,offset)&0xff);
+            offset = offset + 1;
+        }
 
-        //固定.
-        offset = offset + 45;
+        while((offset + 1) < len_sniffer_buf(buf))
+        {
+            //一字节列名称长度. oracle最大列长度30.
+            if((index_sniffer_buf(buf,offset)&0xff) <= 30 && 
+                isprint((index_sniffer_buf(buf,offset + 1)&0xff)))
+            {
+                break;
+            }
 
-        //一子节列名称长度. oracle最大列长度30.
+            offset = offset + 1;
+        }
+
+        //一字节列名称长度. oracle最大列长度30.
         column_name_len = (index_sniffer_buf(buf,offset)&0xff);
         offset = offset + 1;
 
@@ -1112,13 +1145,14 @@ uint32_t xProxy_oracle_TNS_Data_0x10_DATA(struct sniffer_session * session,uint3
             cat_sniffer_buf(data_stream,(buf->buf + offset),data_stream_len);
             offset = offset + data_stream_len;
 
-            column_string = init_sniffer_buf(10);
+            column_string = init_sniffer_buf(128);
             xProxy_oracle_DataAnalyse(data_stream,(enum TNS_COLUMN_TYPE)oracle->columns_select_type[column_index],column_string);
 
             INFO_LOG("sniffer_oracle.cpp:xProxy_oracle_TNS_Data_0x10_DATA() column_index %d,src_len %d,column_data_string %s,max_rowset %d",
                         column_index,data_stream_len,(column_string->buf),oracle->max_rowset);
             
-            if(oracle->max_rowset < sniffer_cfg_max_rowset())
+            if(oracle->max_rowset < sniffer_cfg_max_rowset() && 
+                (NULL != oracle->columns_select_name))
             {
                 cJSON_AddItemToObject(row_item,oracle->columns_select_name[column_index]->buf,cJSON_CreateString(column_string->buf));
             }
@@ -1600,6 +1634,12 @@ void xProxy_oracle_DataAnalyse(struct sniffer_buf* data_src,enum TNS_COLUMN_TYPE
         case TNS_COLUMN_TYPE_ROWNUM:
         case TNS_COLUMN_TYPE_NUMBER:
         {   
+            if(len_sniffer_buf(data_src) > 10)
+            {
+                cat_sniffer_buf(data_string,"null",strlen("null"));
+                break;
+            }
+
             //此处只计算整数部分.
             token = (index_sniffer_buf(data_src,offset)&0xff);
             if(token < 0x3f && 
