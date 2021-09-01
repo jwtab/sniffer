@@ -73,5 +73,6 @@ sniffer_session * sniffer_session_get(const char * key);
 //上报日志.
 void sniffer_session_log(sniffer_session * sess,bool isNew = true);
 void sniffer_sql_log(sniffer_session * sess);
+string sniffer_strRand(int len);
 
 #endif //SNIFFER_SESS_H_

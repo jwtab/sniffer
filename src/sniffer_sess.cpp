@@ -7,10 +7,43 @@
 
 #include <sniffer_log.h>
 
+#include <random>
+
 unordered_map<string,struct sniffer_session*> g_sessions;
+
+string sniffer_strRand(int len)
+{			
+    char tmp; // tmp: 
+    string buffer = "";
+    
+    random_device rd; 
+    default_random_engine random(rd());
+    
+    for (int i = 0; i < len; i++) 
+    { 
+        tmp = random() % 36;	// 随机一个小于 36 的整数，0-9、A-Z 共 36 种字符 
+        if (tmp < 10) 
+        {			
+            // 如果随机数小于 10，变换成一个阿拉伯数字的 ASCII 
+            tmp += '0'; 
+        }
+        else 
+        { 
+            // 否则，变换成一个大写字母的 ASCII 
+            tmp -= 10; 
+            tmp += 'A'; 
+        } 
+        
+        buffer += tmp; 
+    } 
+    
+    return buffer;
+}
 
 void sniffer_session_log(sniffer_session * sess,bool isNew)
 {
+    string id = sniffer_strRand(24);
+
     cJSON * root = cJSON_CreateObject();
     cJSON * pValues = cJSON_CreateObject();
     if(!pValues || !root)
@@ -24,15 +57,9 @@ void sniffer_session_log(sniffer_session * sess,bool isNew)
 
     sess->from_upstream = !strcasecmp(sess->from_ip->buf,sniffer_cfg_capip().c_str());
 
-    char id[64] = {0};
-    char pid[64] = {0};
-
     //propertyValues。
-    sniffer_log_uuid(id);
-    sniffer_log_uuid(pid);
-
-    cJSON_AddItemToObject(pValues,"id",cJSON_CreateString(id));
-    cJSON_AddItemToObject(pValues,"pid",cJSON_CreateString(pid));
+    cJSON_AddItemToObject(pValues,"id",cJSON_CreateString(id.c_str()));
+    cJSON_AddItemToObject(pValues,"pid",cJSON_CreateString("000000000000000000000000"));
 
     cJSON_AddItemToObject(pValues,"object_id",cJSON_CreateNumber(sniffer_cfg_objectid()));
 
@@ -164,8 +191,8 @@ void sniffer_session_log(sniffer_session * sess,bool isNew)
     cJSON_AddItemToObject(root,"timestamp",cJSON_CreateNumber(sniffer_log_time_ms()));
     cJSON_AddItemToObject(root,"propertyValues",pValues);
 
-    cJSON_AddItemToObject(root,"id",cJSON_CreateString(id));
-    cJSON_AddItemToObject(root,"pid",cJSON_CreateString(pid));
+    cJSON_AddItemToObject(root,"id",cJSON_CreateString(id.c_str()));
+    cJSON_AddItemToObject(root,"pid",cJSON_CreateString("000000000000000000000000"));
 
     sniffer_kafka_body(root);
 
@@ -176,6 +203,8 @@ void sniffer_sql_log(sniffer_session * sess)
 {
     cJSON * root = cJSON_CreateObject();
     cJSON * pValues = cJSON_CreateObject();
+    string id = sniffer_strRand(24);
+
     if(!pValues || !root)
     {
         ERROR_LOG("sniffer_sess.cpp:sniffer_sql_log() cJSON_CreateObject(<root> <propertyValues>) error %s",cJSON_GetErrorPtr());
@@ -185,15 +214,9 @@ void sniffer_sql_log(sniffer_session * sess)
     sess->op_end = sniffer_log_time_ms();
     sess->from_upstream = !strcasecmp(sess->from_ip->buf,sniffer_cfg_capip().c_str());
 
-    char id[64] = {0};
-    char pid[64] = {0};
-
     //propertyValues。
-    sniffer_log_uuid(id);
-    sniffer_log_uuid(pid);
-
-    cJSON_AddItemToObject(pValues,"id",cJSON_CreateString(id));
-    cJSON_AddItemToObject(pValues,"pid",cJSON_CreateString(pid));
+    cJSON_AddItemToObject(pValues,"id",cJSON_CreateString(id.c_str()));
+    cJSON_AddItemToObject(pValues,"pid",cJSON_CreateString("000000000000000000000000"));
 
     cJSON_AddItemToObject(pValues,"object_id",cJSON_CreateNumber(sniffer_cfg_objectid()));
 
@@ -387,8 +410,8 @@ void sniffer_sql_log(sniffer_session * sess)
     cJSON_AddItemToObject(root,"timestamp",cJSON_CreateNumber(sniffer_log_time_ms()));
     cJSON_AddItemToObject(root,"propertyValues",pValues);
 
-    cJSON_AddItemToObject(root,"id",cJSON_CreateString(id));
-    cJSON_AddItemToObject(root,"pid",cJSON_CreateString(pid));
+    cJSON_AddItemToObject(root,"id",cJSON_CreateString(id.c_str()));
+    cJSON_AddItemToObject(root,"pid",cJSON_CreateString("000000000000000000000000"));
 
     sniffer_kafka_body(root);
 
