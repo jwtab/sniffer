@@ -42,7 +42,7 @@ string sniffer_strRand(int len)
 
 void sniffer_session_log(sniffer_session * sess,bool isNew)
 {
-    string id = sniffer_strRand(24);
+    ///string id = sniffer_strRand(24);
 
     cJSON * root = cJSON_CreateObject();
     cJSON * pValues = cJSON_CreateObject();
@@ -58,8 +58,8 @@ void sniffer_session_log(sniffer_session * sess,bool isNew)
     sess->from_upstream = !strcasecmp(sess->from_ip->buf,sniffer_cfg_capip().c_str());
 
     //propertyValues。
-    cJSON_AddItemToObject(pValues,"id",cJSON_CreateString(id.c_str()));
-    cJSON_AddItemToObject(pValues,"pid",cJSON_CreateString("000000000000000000000000"));
+    ///cJSON_AddItemToObject(pValues,"id",cJSON_CreateString(id.c_str()));
+    ////cJSON_AddItemToObject(pValues,"pid",cJSON_CreateString("000000000000000000000000"));
 
     cJSON_AddItemToObject(pValues,"object_id",cJSON_CreateNumber(sniffer_cfg_objectid()));
 
@@ -191,8 +191,8 @@ void sniffer_session_log(sniffer_session * sess,bool isNew)
     cJSON_AddItemToObject(root,"timestamp",cJSON_CreateNumber(sniffer_log_time_ms()));
     cJSON_AddItemToObject(root,"propertyValues",pValues);
 
-    cJSON_AddItemToObject(root,"id",cJSON_CreateString(id.c_str()));
-    cJSON_AddItemToObject(root,"pid",cJSON_CreateString("000000000000000000000000"));
+    ///cJSON_AddItemToObject(root,"id",cJSON_CreateString(id.c_str()));
+    ///cJSON_AddItemToObject(root,"pid",cJSON_CreateString("000000000000000000000000"));
 
     sniffer_kafka_body(root);
 
@@ -203,7 +203,7 @@ void sniffer_sql_log(sniffer_session * sess)
 {
     cJSON * root = cJSON_CreateObject();
     cJSON * pValues = cJSON_CreateObject();
-    string id = sniffer_strRand(24);
+    ///string id = sniffer_strRand(24);
 
     if(!pValues || !root)
     {
@@ -215,8 +215,8 @@ void sniffer_sql_log(sniffer_session * sess)
     sess->from_upstream = !strcasecmp(sess->from_ip->buf,sniffer_cfg_capip().c_str());
 
     //propertyValues。
-    cJSON_AddItemToObject(pValues,"id",cJSON_CreateString(id.c_str()));
-    cJSON_AddItemToObject(pValues,"pid",cJSON_CreateString("000000000000000000000000"));
+    ///cJSON_AddItemToObject(pValues,"id",cJSON_CreateString(id.c_str()));
+    ///cJSON_AddItemToObject(pValues,"pid",cJSON_CreateString("000000000000000000000000"));
 
     cJSON_AddItemToObject(pValues,"object_id",cJSON_CreateNumber(sniffer_cfg_objectid()));
 
@@ -410,8 +410,8 @@ void sniffer_sql_log(sniffer_session * sess)
     cJSON_AddItemToObject(root,"timestamp",cJSON_CreateNumber(sniffer_log_time_ms()));
     cJSON_AddItemToObject(root,"propertyValues",pValues);
 
-    cJSON_AddItemToObject(root,"id",cJSON_CreateString(id.c_str()));
-    cJSON_AddItemToObject(root,"pid",cJSON_CreateString("000000000000000000000000"));
+    ///cJSON_AddItemToObject(root,"id",cJSON_CreateString(id.c_str()));
+    ///cJSON_AddItemToObject(root,"pid",cJSON_CreateString("000000000000000000000000"));
 
     sniffer_kafka_body(root);
 
