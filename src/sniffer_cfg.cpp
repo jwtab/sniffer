@@ -11,7 +11,7 @@ static void sniffer_help(const char * name)
             "         -p port, Default to 3306.\n"
             "         -s serverip, Default to 127.0.0.1.\n"
             "         -k kafka, Default to 127.0.0.1:9092.\n"
-            "         -t dbtype, Default to mysql{mysql\\oracle\\postgresql}.\n"
+            "         -t dbtype, Default to mysql{mysql\\mariadb\\gbase8a\\oracle\\postgresql\\dm\\informix\\gbase8s\\gbase8t\\hive}.\n"
             "         -l logtype, Default to warn{fatal\\error\\warn\\info\\debug}.\n"
             "         -b object_id, Default to 100.\n"
             "         -r max_rowsets, Default to 5.\n"
@@ -57,6 +57,14 @@ static DB_TYPE cmdline_parse_dbtype(const char * opt)
     {
         type = DB_TYPE_MYSQL;
     }
+    else if(0 == strcasecmp(opt,"mariadb"))
+    {
+        type = DB_TYPE_MARIADB;
+    }
+    else if(0 == strcasecmp(opt,"gbase8a"))
+    {
+        type = DB_TYPE_GBASE8A;
+    }
     else if(0 == strcasecmp(opt,"oracle"))
     {
         type = DB_TYPE_ORACLE;
@@ -65,10 +73,26 @@ static DB_TYPE cmdline_parse_dbtype(const char * opt)
     {
         type = DB_TYPE_POSTGRESQL;
     }
+    else if(0 == strcasecmp(opt,"informix"))
+    {
+        type = DB_TYPE_INFORMIX;
+    }
+    else if(0 == strcasecmp(opt,"gbase8s"))
+    {
+        type = DB_TYPE_GBASE8S;
+    }
+    else if(0 == strcasecmp(opt,"gbase8t"))
+    {
+        type = DB_TYPE_GBASE8T;
+    }
+    else if(0 == strcasecmp(opt,"hive"))
+    {
+        type = DB_TYPE_HIVE;
+    }
 
     if(DB_TYPE_MAX == type)
     {
-        printf("-t dbtype, Default to mysql{mysql\\oracle\\postgresql}\n");
+        printf("-t dbtype, Default to mysql{mysql\\mariadb\\gbase8a\\oracle\\postgresql\\dm\\informix\\gbase8s\\gbase8t\\hive}\n");
         exit(1);
     }
 

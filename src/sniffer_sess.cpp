@@ -541,7 +541,9 @@ int sniffer_session_add(const char * key,tcp_stream stream)
     sess->os_user = NULL;
     sess->client_info = NULL;
 
-    if(sess->db_type == DB_TYPE_MYSQL)
+    if(sess->db_type == DB_TYPE_MYSQL ||
+        sess->db_type == DB_TYPE_MARIADB ||
+        sess->db_type == DB_TYPE_GBASE8A)
     {
         INFO_LOG("sniffer_sess.cpp:sniffer_session_add() new_session db_type %s","MySQL");
 
@@ -584,6 +586,20 @@ int sniffer_session_add(const char * key,tcp_stream stream)
         st->columns_select_name = NULL;
 
         sess->db_features = (void*)st;
+    }
+    else if(sess->db_type == DB_TYPE_INFORMIX ||
+        sess->db_type == DB_TYPE_GBASE8S ||
+        sess->db_type == DB_TYPE_GBASE8T)
+    {
+
+    }
+    else if(sess->db_type == DB_TYPE_HIVE)
+    {
+
+    }
+    else if(sess->db_type == DB_TYPE_DM)
+    {
+        
     }
 
     sess->uuid = init_sniffer_buf(40);
