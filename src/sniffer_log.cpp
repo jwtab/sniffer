@@ -9,10 +9,15 @@ static char DB_TYPE_string[DB_TYPE_MAX][64] =
 {
     "Unkown",
     "MySQL",
+    "MariaDB",
+    "GBase 8a",
     "Oracle",
     "PostgreSQL",
+    "Greenplum"
     "DM",
     "Informix",
+    "GBase 8s",
+    "GBase 8t",
     "Hive"
 };
 

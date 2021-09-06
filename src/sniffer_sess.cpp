@@ -545,7 +545,7 @@ int sniffer_session_add(const char * key,tcp_stream stream)
         sess->db_type == DB_TYPE_MARIADB ||
         sess->db_type == DB_TYPE_GBASE8A)
     {
-        INFO_LOG("sniffer_sess.cpp:sniffer_session_add() new_session db_type %s","MySQL");
+        INFO_LOG("sniffer_sess.cpp:sniffer_session_add() new_session LIKE_db_type %s","MySQL");
 
         sess->data_fun = dispatch_data_mysql;
 
@@ -598,6 +598,11 @@ int sniffer_session_add(const char * key,tcp_stream stream)
 
     }
     else if(sess->db_type == DB_TYPE_DM)
+    {
+        
+    }
+    else if(sess->db_type == DB_TYPE_POSTGRESQL ||
+            sess->db_type == DB_TYPE_GREENPLUM)
     {
         
     }

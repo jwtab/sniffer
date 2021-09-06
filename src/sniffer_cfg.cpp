@@ -11,7 +11,7 @@ static void sniffer_help(const char * name)
             "         -p port, Default to 3306.\n"
             "         -s serverip, Default to 127.0.0.1.\n"
             "         -k kafka, Default to 127.0.0.1:9092.\n"
-            "         -t dbtype, Default to mysql{mysql\\mariadb\\gbase8a\\oracle\\postgresql\\dm\\informix\\gbase8s\\gbase8t\\hive}.\n"
+            "         -t dbtype, Default to mysql{mysql\\mariadb\\gbase8a\\oracle\\postgresql\\greenplum\\dm\\informix\\gbase8s\\gbase8t\\hive}.\n"
             "         -l logtype, Default to warn{fatal\\error\\warn\\info\\debug}.\n"
             "         -b object_id, Default to 100.\n"
             "         -r max_rowsets, Default to 5.\n"
@@ -73,6 +73,10 @@ static DB_TYPE cmdline_parse_dbtype(const char * opt)
     {
         type = DB_TYPE_POSTGRESQL;
     }
+    else if(0 == strcasecmp(opt,"greenplum"))
+    {
+        type = DB_TYPE_GREENPLUM;
+    }
     else if(0 == strcasecmp(opt,"informix"))
     {
         type = DB_TYPE_INFORMIX;
@@ -92,7 +96,7 @@ static DB_TYPE cmdline_parse_dbtype(const char * opt)
 
     if(DB_TYPE_MAX == type)
     {
-        printf("-t dbtype, Default to mysql{mysql\\mariadb\\gbase8a\\oracle\\postgresql\\dm\\informix\\gbase8s\\gbase8t\\hive}\n");
+        printf("-t dbtype, Default to mysql{mysql\\mariadb\\gbase8a\\oracle\\postgresql\\greenplum\\dm\\informix\\gbase8s\\gbase8t\\hive}\n");
         exit(1);
     }
 
