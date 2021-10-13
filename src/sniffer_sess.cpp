@@ -4,6 +4,7 @@
 
 #include <sniffer_mysql.h>
 #include <sniffer_oracle.h>
+#include <sniffer_tds.h>
 
 #include <sniffer_log.h>
 
@@ -605,6 +606,17 @@ int sniffer_session_add(const char * key,tcp_stream stream)
             sess->db_type == DB_TYPE_GREENPLUM)
     {
         
+    }
+    else if(sess->db_type == DB_TYPE_MSSQL)
+    {
+        sess->data_fun = dispatch_data_tds;
+
+        st_tds * st = (struct st_tds*)zmalloc(sizeof(struct st_tds));
+
+        st->upstream_buf = init_sniffer_buf(256);
+        st->downstream_buf = init_sniffer_buf(256);
+
+        sess->db_features = (void*)st;
     }
 
     sess->uuid = init_sniffer_buf(40);

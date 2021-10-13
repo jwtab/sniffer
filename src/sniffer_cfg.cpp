@@ -11,7 +11,7 @@ static void sniffer_help(const char * name)
             "         -p port, Default to 3306.\n"
             "         -s serverip, Default to 127.0.0.1.\n"
             "         -k kafka, Default to 127.0.0.1:9092.\n"
-            "         -t dbtype, Default to mysql{mysql\\mariadb\\gbase8a\\oracle\\postgresql\\greenplum\\dm\\informix\\gbase8s\\gbase8t\\hive}.\n"
+            "         -t dbtype, Default to mysql{mysql\\mariadb\\gbase8a\\oracle\\postgresql\\greenplum\\dm\\informix\\gbase8s\\gbase8t\\hive\\mssql}.\n"
             "         -l logtype, Default to warn{fatal\\error\\warn\\info\\debug}.\n"
             "         -b object_id, Default to 100.\n"
             "         -r max_rowsets, Default to 5.\n"
@@ -92,6 +92,10 @@ static DB_TYPE cmdline_parse_dbtype(const char * opt)
     else if(0 == strcasecmp(opt,"hive"))
     {
         type = DB_TYPE_HIVE;
+    }
+    else if(0 == strcasecmp(opt,"mssql"))
+    {
+        type = DB_TYPE_MSSQL;
     }
 
     if(DB_TYPE_MAX == type)

@@ -18,7 +18,8 @@ static char DB_TYPE_string[DB_TYPE_MAX][64] =
     "Informix",
     "GBase 8s",
     "GBase 8t",
-    "Hive"
+    "Hive",
+    "MSSQL"
 };
 
 static char LOG_TYPE_string[LOG_TYPE_MAX][12] = 
