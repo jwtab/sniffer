@@ -118,6 +118,8 @@ typedef struct st_tds
 {
     struct sniffer_buf * downstream_buf;
     struct sniffer_buf * upstream_buf;
+
+    struct tds_header header;
 }ST_TDS;
 
 int dispatch_data_tds(sniffer_session *session,const char * data,uint32_t data_len);
@@ -126,4 +128,10 @@ int dispatch_data_tds_upstream(sniffer_session *session,const char * data,uint32
 int dispatch_data_tds_downstream(sniffer_session *session,const char * data,uint32_t data_len);
 
 int dispatch_data_tds_parseHead(struct st_tds *tds,struct sniffer_buf *buf);
+
+void dispatch_TDS_SQLBATCH(struct sniffer_session *session,uint32_t offset);
+void dispatch_TDS_PRELOGIN(struct sniffer_session *session,uint32_t offset);
+void dispatch_TDS_TABULARRESULT(struct sniffer_session *session,uint32_t offset);
+void dispatch_TDS_TRANSACTION(struct sniffer_session *session,uint32_t offset);
+
 #endif //SNIFFER_TDS_H_H_
