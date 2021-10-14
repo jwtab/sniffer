@@ -271,5 +271,178 @@ void dispatch_TDS_TRANSACTION(struct sniffer_session *session,uint32_t offset)
 
 void dispatch_TDS_RPC(struct sniffer_session *session,uint32_t offset)
 {
-    INFO_LOG("sniffer_tds.cpp:%s()","dispatch_TDS_RPC");
+    struct st_tds * proxy_tds = (struct st_tds*)session->db_features;
+    struct sniffer_buf * buf = proxy_tds->upstream_buf;
+    
+    struct sniffer_buf *sql = init_sniffer_buf(128);
+
+    uint32_t header_total_len = 0;
+    uint32_t header_len = 0;
+    uint32_t header_type = 0;
+    uint16_t rpc_name_len = 0;
+    uint16_t rpc_name_id = 0;
+
+    //4字节.
+    header_total_len = (index_sniffer_buf(buf,offset)&0xff);
+    offset = offset + 1;
+
+    header_total_len += (index_sniffer_buf(buf,offset)&0xff) << 8;
+    offset = offset + 1;
+
+    header_total_len += (index_sniffer_buf(buf,offset)&0xff) << 16;
+    offset = offset + 1;
+
+    header_total_len += (index_sniffer_buf(buf,offset)&0xff) << 24;
+    offset = offset + 1;
+
+    //4字节.
+    header_len = (index_sniffer_buf(buf,offset)&0xff);
+    offset = offset + 1;
+
+    header_len += (index_sniffer_buf(buf,offset)&0xff) << 8;
+    offset = offset + 1;
+
+    header_len += (index_sniffer_buf(buf,offset)&0xff) << 16;
+    offset = offset + 1;
+
+    header_len += (index_sniffer_buf(buf,offset)&0xff) << 24;
+    offset = offset + 1;
+
+    //2字节.
+    header_type = (index_sniffer_buf(buf,offset)&0xff);
+    offset = offset + 1;
+
+    header_type += (index_sniffer_buf(buf,offset)&0xff) << 8;
+    offset = offset + 1;
+
+    if(2 == header_type)
+    {
+        //8字节
+        offset = offset + 8;
+
+        //4字节
+        offset = offset + 4;
+    }
+
+    INFO_LOG("sniffer_tds.cpp:dispatch_TDS_RPC() stream_total_len %d,header_len %d,header_type %d",header_total_len,header_len,header_type);
+
+    //rpc name len 2字节.
+    rpc_name_len = (index_sniffer_buf(buf,offset)&0xff);
+    offset = offset + 1;
+
+    rpc_name_len += (index_sniffer_buf(buf,offset)&0xff) << 8;
+    offset = offset + 1;
+
+    //rpc name id 2字节.
+    rpc_name_id = (index_sniffer_buf(buf,offset)&0xff);
+    offset = offset + 1;
+
+    rpc_name_id += (index_sniffer_buf(buf,offset)&0xff) << 8;
+    offset = offset + 1;
+
+    INFO_LOG("sniffer_tds.cpp:dispatch_TDS_RPC() rpc_name_length %d,rpc_name_id %d",rpc_name_len,rpc_name_id);
+
+    switch (rpc_name_id)
+    {
+        case 1:
+        {
+            cat_sniffer_buf(sql,"exec Sp_Cursor");
+            break;
+        }
+
+        case 2:
+        {
+            cat_sniffer_buf(sql,"exec Sp_CursorOpen");
+            break;
+        }
+
+        case 3:
+        {
+            cat_sniffer_buf(sql,"exec Sp_CursorPrepare");
+            break;
+        }
+
+        case 4:
+        {
+            cat_sniffer_buf(sql,"exec Sp_CursorExecute");
+            break;
+        }
+
+        case 5:
+        {
+            cat_sniffer_buf(sql,"exec Sp_CursorPrepExec");
+            break;
+        }
+
+        case 6:
+        {
+            cat_sniffer_buf(sql,"exec Sp_CursorUnprepare");
+            break;
+        }
+
+        case 7:
+        {
+            cat_sniffer_buf(sql,"exec Sp_CursorFetch");
+            break;
+        }
+
+        case 8:
+        {
+            cat_sniffer_buf(sql,"exec Sp_CursorOption");
+            break;
+        }
+
+        case 9:
+        {
+            cat_sniffer_buf(sql,"exec Sp_CursorClose");
+            break;
+        }
+
+        case 10:
+        {
+            cat_sniffer_buf(sql,"exec Sp_ExecuteSql");
+            break;
+        }
+
+        case 11:
+        {
+            cat_sniffer_buf(sql,"exec Sp_Prepare");
+            break;
+        }
+
+        case 12:
+        {
+            cat_sniffer_buf(sql,"exec Sp_Execute");
+            break;
+        }
+
+        case 13:
+        {
+            cat_sniffer_buf(sql,"exec Sp_PrepExec");
+            break;
+        }
+
+        case 14:
+        {
+            cat_sniffer_buf(sql,"exec Sp_PrepExecRpc");
+            break;
+        }
+
+        case 15:
+        {
+            cat_sniffer_buf(sql,"exec Sp_Unprepare");
+            break;
+        }
+
+        default:
+        {
+            cat_sniffer_buf(sql,"Unknown RPC ID");
+            break;
+        }
+    }
+
+    INFO_LOG("sniffer_tds.cpp:dispatch_TDS_RPC() rpc_name %s",buf_sniffer_buf(sql,0));
+
+    destroy_sniffer_buf(sql);
+    sql = NULL;
 }
