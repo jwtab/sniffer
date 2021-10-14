@@ -262,6 +262,145 @@ void dispatch_TDS_PRELOGIN(struct sniffer_session *session,uint32_t offset)
 void dispatch_TDS_TABULARRESULT(struct sniffer_session *session,uint32_t offset)
 {
     INFO_LOG("sniffer_tds.cpp:%s()","dispatch_TDS_TABULARRESULT");
+    struct st_tds * proxy_tds = (struct st_tds*)session->db_features;
+    struct sniffer_buf * buf = proxy_tds->downstream_buf;
+    
+    uint8_t tds_data_token = 0;
+    while(1)
+    {
+        tds_data_token = index_sniffer_buf(buf,offset)&0xff;
+        bool done = false;
+
+        switch (tds_data_token)
+        {
+            case TDS_TOKEN_TVPROW:
+            {
+                break;
+            }
+
+            case TDS_TOKEN_OFFSET:
+            {
+                break;
+            }
+
+            case TDS_TOKEN_RETURNSTATUS:
+            {
+                offset = offset + dispatch_TDS_TOKEN_RETURNSTATUS(buf_sniffer_buf(buf,offset));
+                break;
+            }
+
+            case TDS_TOKEN_COLMETADATA:
+            {
+                offset = offset + dispatch_TDS_TOKEN_COLMETADATA(buf_sniffer_buf(buf,offset));
+                break;
+            }
+
+            case TDS_TOKEN_ALTMETADATA:
+            {
+                break;
+            }
+            
+            case TDS_TOKEN_TABNAME:
+            {
+                break;
+            }
+
+            case TDS_TOKEN_COLINFO:
+            {
+                offset = offset + dispatch_TDS_TOKEN_COLINFO(buf_sniffer_buf(buf,offset));
+                break;
+            }
+
+            case TDS_TOKEN_ORDER:
+            {
+                break;
+            }
+
+            case TDS_TOKEN_ERROR:
+            {
+                offset = offset + dispatch_TDS_TOKEN_ERROR(buf_sniffer_buf(buf,offset));
+                break;
+            }
+
+            case TDS_TOKEN_INFO:
+            {
+                offset = offset + dispatch_TDS_TOKEN_INFO(buf_sniffer_buf(buf,offset));
+                break;
+            }
+
+            case TDS_TOKEN_RETURNVALUE:
+            {
+                break;
+            }
+
+            case TDS_TOKEN_LOGINACK:
+            {
+                offset = offset + dispatch_TDS_TOKEN_LOGINACK(buf_sniffer_buf(buf,offset));
+                break;
+            }
+
+            case TDS_TOKEN_ROW:
+            {
+                offset = offset + dispatch_TDS_TOKEN_ROW(buf_sniffer_buf(buf,offset));
+                break;
+            }
+
+            case TDS_TOKEN_NBCROW:
+            {
+                break;
+            }
+
+            case TDS_TOKEN_ALTROW:
+            {
+                break;
+            }
+
+            case TDS_TOKEN_ENVCHANGE:
+            {
+                offset = offset + dispatch_TDS_TOKEN_ENVCHANGE(buf_sniffer_buf(buf,offset));
+                break;
+            }
+
+            case TDS_TOKEN_SSPI:
+            {
+                break;
+            }
+
+            case TDS_TOKEN_DONE:
+            {
+                done = true;
+                offset = offset + dispatch_TDS_TOKEN_DONE(buf_sniffer_buf(buf,offset));
+                break;
+            }
+
+            case TDS_TOKEN_DONEPROC:
+            {
+                done = true;
+                offset = offset + dispatch_TDS_TOKEN_DONEPROC(buf_sniffer_buf(buf,offset));
+                break;
+            }
+
+            case TDS_TOKEN_DONEINPROC:
+            {
+                offset = offset + dispatch_TDS_TOKEN_DONEINPROC(buf_sniffer_buf(buf,offset));
+                break;
+            }
+
+            default:
+            {
+                break;
+            }
+        }
+
+        if(done)
+        {
+            break;
+        }
+        else
+        {
+            //
+        }
+    }
 }
 
 void dispatch_TDS_TRANSACTION(struct sniffer_session *session,uint32_t offset)
@@ -445,4 +584,59 @@ void dispatch_TDS_RPC(struct sniffer_session *session,uint32_t offset)
 
     destroy_sniffer_buf(sql);
     sql = NULL;
+}
+
+uint32_t dispatch_TDS_TOKEN_ERROR(const char * data)
+{
+    return 0;
+}
+
+uint32_t dispatch_TDS_TOKEN_DONE(const char * data)
+{
+    return 0;
+}
+
+uint32_t dispatch_TDS_TOKEN_DONEPROC(const char * data)
+{
+    return 0;
+}
+
+uint32_t dispatch_TDS_TOKEN_DONEINPROC(const char * data)
+{
+    return 0;
+}
+
+uint32_t dispatch_TDS_TOKEN_COLMETADATA(const char *data)
+{
+    return 0;
+}
+
+uint32_t dispatch_TDS_TOKEN_COLINFO(const char *data)
+{
+    return 0;
+}
+
+uint32_t dispatch_TDS_TOKEN_LOGINACK(const char *data)
+{
+    return 0;
+}
+
+uint32_t dispatch_TDS_TOKEN_ROW(const char *data)
+{
+    return 0;
+}
+
+uint32_t dispatch_TDS_TOKEN_INFO(const char *data)
+{
+    return 0;
+}
+
+uint32_t dispatch_TDS_TOKEN_RETURNSTATUS(const char *data)
+{
+    return 0;
+}
+
+uint32_t dispatch_TDS_TOKEN_ENVCHANGE(const char *data)
+{
+    return 0;
 }

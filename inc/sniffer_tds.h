@@ -129,10 +129,24 @@ int dispatch_data_tds_downstream(sniffer_session *session,const char * data,uint
 
 int dispatch_data_tds_parseHead(struct st_tds *tds,struct sniffer_buf *buf);
 
+//types函数.
 void dispatch_TDS_SQLBATCH(struct sniffer_session *session,uint32_t offset);
 void dispatch_TDS_PRELOGIN(struct sniffer_session *session,uint32_t offset);
 void dispatch_TDS_TABULARRESULT(struct sniffer_session *session,uint32_t offset);
 void dispatch_TDS_TRANSACTION(struct sniffer_session *session,uint32_t offset);
 void dispatch_TDS_RPC(struct sniffer_session *session,uint32_t offset);
+
+//tokens函数.
+uint32_t dispatch_TDS_TOKEN_ERROR(const char * data);
+uint32_t dispatch_TDS_TOKEN_DONE(const char * data);
+uint32_t dispatch_TDS_TOKEN_DONEPROC(const char * data);
+uint32_t dispatch_TDS_TOKEN_DONEINPROC(const char * data);
+uint32_t dispatch_TDS_TOKEN_COLMETADATA(const char *data);
+uint32_t dispatch_TDS_TOKEN_COLINFO(const char *data);
+uint32_t dispatch_TDS_TOKEN_LOGINACK(const char *data);
+uint32_t dispatch_TDS_TOKEN_ROW(const char *data);
+uint32_t dispatch_TDS_TOKEN_INFO(const char *data);
+uint32_t dispatch_TDS_TOKEN_RETURNSTATUS(const char *data);
+uint32_t dispatch_TDS_TOKEN_ENVCHANGE(const char *data);
 
 #endif //SNIFFER_TDS_H_H_
