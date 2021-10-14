@@ -149,18 +149,20 @@ char * buf_sniffer_buf(struct sniffer_buf * buf,int offset)
 
 uint32_t pushback_sniffer_buf(struct sniffer_buf *buf,char c)
 {
-    if(left_sniffer_buf(buf) <= 0)
+    if(left_sniffer_buf(buf) <= 1)
     {
         uint32_t size = size_sniffer_buf(buf) + 64;
 
         char * dest = (char*)zmalloc(sizeof(char)*(size));
         if(dest)
         {
+            memset(dest,0,size);
             memcpy(dest,buf->buf,len_sniffer_buf(buf));
             
             //释放之前的空间.
             char * temp = buf->buf;
             buf->buf = dest;
+            buf->size = size;
 
             if(temp)
             {

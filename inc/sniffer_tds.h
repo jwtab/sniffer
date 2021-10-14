@@ -133,5 +133,6 @@ void dispatch_TDS_SQLBATCH(struct sniffer_session *session,uint32_t offset);
 void dispatch_TDS_PRELOGIN(struct sniffer_session *session,uint32_t offset);
 void dispatch_TDS_TABULARRESULT(struct sniffer_session *session,uint32_t offset);
 void dispatch_TDS_TRANSACTION(struct sniffer_session *session,uint32_t offset);
+void dispatch_TDS_RPC(struct sniffer_session *session,uint32_t offset);
 
 #endif //SNIFFER_TDS_H_H_

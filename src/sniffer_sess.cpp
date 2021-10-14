@@ -613,8 +613,8 @@ int sniffer_session_add(const char * key,tcp_stream stream)
 
         st_tds * st = (struct st_tds*)zmalloc(sizeof(struct st_tds));
 
-        st->upstream_buf = init_sniffer_buf(256);
-        st->downstream_buf = init_sniffer_buf(256);
+        st->upstream_buf = init_sniffer_buf(1024);
+        st->downstream_buf = init_sniffer_buf(1024);
 
         sess->db_features = (void*)st;
     }
