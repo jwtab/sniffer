@@ -618,6 +618,10 @@ int sniffer_session_add(const char * key,tcp_stream stream)
 
         sess->db_features = (void*)st;
     }
+    else if(sess->db_type == DB_TYPE_DB2)
+    {
+        
+    }
 
     sess->uuid = init_sniffer_buf(40);
     sniffer_log_uuid(sess->uuid->buf);

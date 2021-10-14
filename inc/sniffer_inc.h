@@ -43,6 +43,7 @@ enum DB_TYPE
     DB_TYPE_GBASE8T,
     DB_TYPE_HIVE,
     DB_TYPE_MSSQL,
+    DB_TYPE_DB2,
     DB_TYPE_MAX
 };
 

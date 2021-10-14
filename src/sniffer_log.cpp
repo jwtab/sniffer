@@ -19,7 +19,8 @@ static char DB_TYPE_string[DB_TYPE_MAX][64] =
     "GBase 8s",
     "GBase 8t",
     "Hive",
-    "MSSQL"
+    "MSSQL",
+    "DB2"
 };
 
 static char LOG_TYPE_string[LOG_TYPE_MAX][12] = 
