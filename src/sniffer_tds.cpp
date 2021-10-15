@@ -3,6 +3,8 @@
 #include <sniffer_log.h>
 #include <sniffer_cfg.h>
 
+uint32_t tds_server_version = 0;
+
 int dispatch_data_tds_parseHead(struct st_tds *tds,struct sniffer_buf *buf)
 {
     memset(&tds->header,0,TDS_HEAD_LEN);
@@ -356,9 +358,12 @@ void dispatch_TDS_TABULARRESULT(struct sniffer_session *session,uint32_t offset)
             {
                 DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_LOGINACK");
                 offset = offset + dispatch_TDS_TOKEN_LOGINACK(buf_sniffer_buf(buf,offset));
+
+                //记录服务器版本.
+                proxy_tds->tds_server_version = tds_server_version;
                 break;
             }
-
+            
             case TDS_TOKEN_ROW:
             {
                 DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_ROW");
@@ -786,6 +791,10 @@ uint32_t dispatch_TDS_TOKEN_COLMETADATA(const char *data)
 
     uint16_t columns_select = 0;
 
+    uint32_t user_type = 0;
+    uint16_t flags = 0;
+    uint8_t column_type = 0;
+
     //Coulumns 2字节.
     columns_select = data[offset]&0xff;
     offset = offset + 1;
@@ -798,7 +807,19 @@ uint32_t dispatch_TDS_TOKEN_COLMETADATA(const char *data)
     //逐一解析column.
     for(int i = 0; i < columns_select; i++)
     {
-        
+        //user_type 4字节.
+        user_type = 0;
+        offset = offset + 4;
+
+        //flags 2字节.
+        flags = 0;
+        offset = offset + 2;
+
+        //column_type 1
+        column_type = data[offset]&0xff;
+        offset = offset + 1;
+
+
     }
 
     return 0;
@@ -839,6 +860,24 @@ uint32_t dispatch_TDS_TOKEN_LOGINACK(const char *data)
     offset = offset + 1;
 
     DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_LOGINACK() token_len %d",token_len);
+
+    //Interface 1字节.
+    offset = offset + 1;
+
+    //tds server version.
+    tds_server_version = (data[offset]&0xff) << 24;
+    offset = offset + 1;
+
+    tds_server_version += (data[offset]&0xff) << 16;
+    offset = offset + 1;
+
+    tds_server_version += data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    tds_server_version += data[offset]&0xff;
+    offset = offset + 1;
+
+    INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_LOGINACK() TDS VERSION 0x%08x",tds_server_version);
 
     return (token_len + 2);
 }

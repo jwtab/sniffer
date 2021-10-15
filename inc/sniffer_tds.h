@@ -95,6 +95,15 @@ enum MSSQL_VARI_TYPE{
 	TDS_DATA_XML					= 0xF1  //XML (introduced in TDS 7.2)
 };
 
+//TDS server version.
+enum TDS_SEVER_VERSION{
+	TDS_7_0 = 0x70000000,
+	TDS_7_1 = 0x71000000,
+	TDS_7_2 = 0x72000000,
+	TDS_7_3 = 0x73000000,
+	TDS_7_4 = 0x74000000
+};
+
 /*
     tds header.
 */
@@ -120,6 +129,8 @@ typedef struct st_tds
     struct sniffer_buf * upstream_buf;
 
     struct tds_header header;
+
+    uint32_t tds_server_version;
 }ST_TDS;
 
 int dispatch_data_tds(sniffer_session *session,const char * data,uint32_t data_len);
