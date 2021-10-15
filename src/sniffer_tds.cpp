@@ -261,7 +261,6 @@ void dispatch_TDS_PRELOGIN(struct sniffer_session *session,uint32_t offset)
 
 void dispatch_TDS_TABULARRESULT(struct sniffer_session *session,uint32_t offset)
 {
-    INFO_LOG("sniffer_tds.cpp:%s()","dispatch_TDS_TABULARRESULT");
     struct st_tds * proxy_tds = (struct st_tds*)session->db_features;
     struct sniffer_buf * buf = proxy_tds->downstream_buf;
     
@@ -269,105 +268,132 @@ void dispatch_TDS_TABULARRESULT(struct sniffer_session *session,uint32_t offset)
     while(1)
     {
         tds_data_token = index_sniffer_buf(buf,offset)&0xff;
+        offset = offset + 1;
+
+        if(0x00 == tds_data_token)
+        {
+            WARN_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() HAVE_NO_TOKEN %s"," ");
+            break;
+        }
+
         bool done = false;
 
         switch (tds_data_token)
         {
             case TDS_TOKEN_TVPROW:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_TVPROW");
                 break;
             }
 
             case TDS_TOKEN_OFFSET:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_OFFSET");
                 break;
             }
 
             case TDS_TOKEN_RETURNSTATUS:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_RETURNSTATUS");
                 offset = offset + dispatch_TDS_TOKEN_RETURNSTATUS(buf_sniffer_buf(buf,offset));
                 break;
             }
 
             case TDS_TOKEN_COLMETADATA:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_COLMETADATA");
                 offset = offset + dispatch_TDS_TOKEN_COLMETADATA(buf_sniffer_buf(buf,offset));
                 break;
             }
 
             case TDS_TOKEN_ALTMETADATA:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_ALTMETADATA");
                 break;
             }
             
             case TDS_TOKEN_TABNAME:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_TABNAME");
                 break;
             }
 
             case TDS_TOKEN_COLINFO:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_COLINFO");
                 offset = offset + dispatch_TDS_TOKEN_COLINFO(buf_sniffer_buf(buf,offset));
                 break;
             }
 
             case TDS_TOKEN_ORDER:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_ORDER");
+                offset = offset + dispatch_TDS_TOKEN_ORDER(buf_sniffer_buf(buf,offset));
                 break;
             }
 
             case TDS_TOKEN_ERROR:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_ERROR");
                 offset = offset + dispatch_TDS_TOKEN_ERROR(buf_sniffer_buf(buf,offset));
                 break;
             }
 
             case TDS_TOKEN_INFO:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_INFO");
                 offset = offset + dispatch_TDS_TOKEN_INFO(buf_sniffer_buf(buf,offset));
                 break;
             }
 
             case TDS_TOKEN_RETURNVALUE:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_RETURNVALUE");
                 break;
             }
 
             case TDS_TOKEN_LOGINACK:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_LOGINACK");
                 offset = offset + dispatch_TDS_TOKEN_LOGINACK(buf_sniffer_buf(buf,offset));
                 break;
             }
 
             case TDS_TOKEN_ROW:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_ROW");
                 offset = offset + dispatch_TDS_TOKEN_ROW(buf_sniffer_buf(buf,offset));
                 break;
             }
 
             case TDS_TOKEN_NBCROW:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_NBCROW");
                 break;
             }
 
             case TDS_TOKEN_ALTROW:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_ALTROW");
                 break;
             }
 
             case TDS_TOKEN_ENVCHANGE:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_ENVCHANGE");
                 offset = offset + dispatch_TDS_TOKEN_ENVCHANGE(buf_sniffer_buf(buf,offset));
                 break;
             }
 
             case TDS_TOKEN_SSPI:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_SSPI");
                 break;
             }
 
             case TDS_TOKEN_DONE:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_DONE");
                 done = true;
                 offset = offset + dispatch_TDS_TOKEN_DONE(buf_sniffer_buf(buf,offset));
                 break;
@@ -375,6 +401,7 @@ void dispatch_TDS_TABULARRESULT(struct sniffer_session *session,uint32_t offset)
 
             case TDS_TOKEN_DONEPROC:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_DONEPROC");
                 done = true;
                 offset = offset + dispatch_TDS_TOKEN_DONEPROC(buf_sniffer_buf(buf,offset));
                 break;
@@ -382,6 +409,7 @@ void dispatch_TDS_TABULARRESULT(struct sniffer_session *session,uint32_t offset)
 
             case TDS_TOKEN_DONEINPROC:
             {
+                DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() toekn %s","TDS_TOKEN_DONEINPROC");
                 offset = offset + dispatch_TDS_TOKEN_DONEINPROC(buf_sniffer_buf(buf,offset));
                 break;
             }
@@ -395,10 +423,6 @@ void dispatch_TDS_TABULARRESULT(struct sniffer_session *session,uint32_t offset)
         if(done)
         {
             break;
-        }
-        else
-        {
-            //
         }
     }
 }
@@ -588,26 +612,195 @@ void dispatch_TDS_RPC(struct sniffer_session *session,uint32_t offset)
 
 uint32_t dispatch_TDS_TOKEN_ERROR(const char * data)
 {
-    return 0;
+    uint32_t offset = 0;
+    uint32_t token_len = 0;
+    uint32_t sql_error_number = 0;
+    uint16_t error_msg_len = 0;
+
+    //token len 2字节.
+    token_len = data[offset]&0xff;
+    offset = offset + 1;
+
+    token_len += (data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    //SQL Error number 4字节.
+    sql_error_number = data[offset]&0xff;
+    offset = offset + 1;
+    
+    sql_error_number += (data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    sql_error_number += (data[offset]&0xff) << 16;
+    offset = offset + 1;
+
+    sql_error_number += (data[offset]&0xff) << 24;
+    offset = offset + 1;
+
+    //State 1字节
+    offset = offset + 1;
+
+    //Class 1字节   
+    offset = offset + 1;
+
+    //Error msg len 2字节.
+    error_msg_len = data[offset]&0xff;
+    offset = offset + 1;
+
+    error_msg_len += (data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_ERROR() token_length %d,error_code %d,error_msg_length %d",
+            token_len,sql_error_number,error_msg_len);
+
+    //该token占用的数据长度.
+    return (token_len + 2);
 }
 
 uint32_t dispatch_TDS_TOKEN_DONE(const char * data)
 {
-    return 0;
+    uint32_t offset = 0;
+
+    uint16_t status_flag = 0;
+    uint16_t operation_cmd = 0;
+    uint64_t row_count = 0;
+
+    //Status flag 2字节.
+    status_flag = data[offset]&0xff;
+    offset = offset + 1;
+
+    status_flag += (data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    //operation 2字节.
+    operation_cmd = data[offset]&0xff;
+    offset = offset + 1;
+
+    operation_cmd += (data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    //Row count 4字节<暂时>
+    row_count = data[offset]&0xff;
+    offset = offset + 1;
+
+    row_count += (data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    row_count += (data[offset]&0xff) << 16;
+    offset = offset + 1;
+
+    row_count += (data[offset]&0xff) << 24;
+    offset = offset + 1;
+
+    INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_DONE() Status_flag %d,op_cmd %d,row_count %d",
+            status_flag,operation_cmd,row_count);
+    
+    return 12;
 }
 
 uint32_t dispatch_TDS_TOKEN_DONEPROC(const char * data)
 {
-    return 0;
+    uint32_t offset = 0;
+
+    uint16_t status_flag = 0;
+    uint16_t operation_cmd = 0;
+    uint64_t row_count = 0;
+
+    //Status flag 2字节.
+    status_flag = data[offset]&0xff;
+    offset = offset + 1;
+
+    status_flag += (data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    //operation 2字节.
+    operation_cmd = data[offset]&0xff;
+    offset = offset + 1;
+
+    operation_cmd += (data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    //Row count 4字节<暂时>
+    row_count = data[offset]&0xff;
+    offset = offset + 1;
+
+    row_count += (data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    row_count += (data[offset]&0xff) << 16;
+    offset = offset + 1;
+
+    row_count += (data[offset]&0xff) << 24;
+    offset = offset + 1;
+
+    INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_DONEPROC() Status_flag %d,op_cmd %d,row_count %d",
+            status_flag,operation_cmd,row_count);
+    
+    return 12;
 }
 
 uint32_t dispatch_TDS_TOKEN_DONEINPROC(const char * data)
 {
-    return 0;
+    uint32_t offset = 0;
+
+    uint16_t status_flag = 0;
+    uint16_t operation_cmd = 0;
+    uint64_t row_count = 0;
+
+    //Status flag 2字节.
+    status_flag = data[offset]&0xff;
+    offset = offset + 1;
+
+    status_flag += (data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    //operation 2字节.
+    operation_cmd = data[offset]&0xff;
+    offset = offset + 1;
+
+    operation_cmd += (data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    //Row count 4字节<暂时>
+    row_count = data[offset]&0xff;
+    offset = offset + 1;
+
+    row_count += (data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    row_count += (data[offset]&0xff) << 16;
+    offset = offset + 1;
+
+    row_count += (data[offset]&0xff) << 24;
+    offset = offset + 1;
+
+    INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_DONEINPROC() Status_flag %d,op_cmd %d,row_count %d",
+            status_flag,operation_cmd,row_count);
+    
+    return 12;
 }
 
 uint32_t dispatch_TDS_TOKEN_COLMETADATA(const char *data)
 {
+    uint32_t offset = 0;
+
+    uint16_t columns_select = 0;
+
+    //Coulumns 2字节.
+    columns_select = data[offset]&0xff;
+    offset = offset + 1;
+
+    columns_select += (data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_COLMETADATA() columns %d",columns_select);
+
+    //逐一解析column.
+    for(int i = 0; i < columns_select; i++)
+    {
+        
+    }
+
     return 0;
 }
 
@@ -616,9 +809,38 @@ uint32_t dispatch_TDS_TOKEN_COLINFO(const char *data)
     return 0;
 }
 
+uint32_t dispatch_TDS_TOKEN_ORDER(const char *data)
+{
+    uint32_t offset = 0;
+    uint32_t token_len = 0;
+
+    //token len 2字节.
+    token_len = data[offset]&0xff;
+    offset = offset + 1;
+
+    token_len += (data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_ORDER() token_len %d",token_len);
+
+    return (token_len + 2);
+}
+
 uint32_t dispatch_TDS_TOKEN_LOGINACK(const char *data)
 {
-    return 0;
+    uint32_t offset = 0;
+    uint32_t token_len = 0;
+
+    //token len 2字节.
+    token_len = data[offset]&0xff;
+    offset = offset + 1;
+
+    token_len += (data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_LOGINACK() token_len %d",token_len);
+
+    return (token_len + 2);
 }
 
 uint32_t dispatch_TDS_TOKEN_ROW(const char *data)
@@ -628,7 +850,19 @@ uint32_t dispatch_TDS_TOKEN_ROW(const char *data)
 
 uint32_t dispatch_TDS_TOKEN_INFO(const char *data)
 {
-    return 0;
+    uint32_t offset = 0;
+    uint32_t token_len = 0;
+
+    //token len 2字节.
+    token_len = data[offset]&0xff;
+    offset = offset + 1;
+
+    token_len += (data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_INFO() token_len %d",token_len);
+
+    return (token_len + 2);
 }
 
 uint32_t dispatch_TDS_TOKEN_RETURNSTATUS(const char *data)
@@ -638,5 +872,22 @@ uint32_t dispatch_TDS_TOKEN_RETURNSTATUS(const char *data)
 
 uint32_t dispatch_TDS_TOKEN_ENVCHANGE(const char *data)
 {
-    return 0;
+    uint32_t offset = 0;
+    uint32_t token_len = 0;
+    uint8_t type = 0;
+
+    //token len 2字节.
+    token_len = data[offset]&0xff;
+    offset = offset + 1;
+
+    token_len += (data[offset]&0xff) << 8;
+    offset = offset + 1;
+
+    //type 1字节.
+    type = data[offset]&0xff;
+    offset = offset + 1;
+
+    DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_ENVCHANGE() token_len %d,type %d",token_len,type);
+
+    return (token_len + 2);
 }

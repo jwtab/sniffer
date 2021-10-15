@@ -143,6 +143,7 @@ uint32_t dispatch_TDS_TOKEN_DONEPROC(const char * data);
 uint32_t dispatch_TDS_TOKEN_DONEINPROC(const char * data);
 uint32_t dispatch_TDS_TOKEN_COLMETADATA(const char *data);
 uint32_t dispatch_TDS_TOKEN_COLINFO(const char *data);
+uint32_t dispatch_TDS_TOKEN_ORDER(const char *data);
 uint32_t dispatch_TDS_TOKEN_LOGINACK(const char *data);
 uint32_t dispatch_TDS_TOKEN_ROW(const char *data);
 uint32_t dispatch_TDS_TOKEN_INFO(const char *data);
