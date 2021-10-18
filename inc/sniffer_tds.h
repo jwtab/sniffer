@@ -11,7 +11,8 @@
 const short TDS_HEAD_LEN = 8;
 
 //TDS包类型定义.
-enum TDS_TYPE{
+enum TDS_TYPE
+{
 	TDS_TYPE_SQLBATCH		    = 0x01,	//SQL batch
 	TDS_TYPE_PRETDS7 		    = 0x02,	//Pre-login TDS7
 	TDS_TYPE_RPC				= 0x03,	//remote procedure call
@@ -25,7 +26,8 @@ enum TDS_TYPE{
 };
 
 //TDS包类型标记.
-enum TDS_DATA_TOKEN{
+enum TDS_DATA_TOKEN
+{
 	TDS_TOKEN_TVPROW			= 0x01,
 	TDS_TOKEN_OFFSET			= 0x78,
 	TDS_TOKEN_RETURNSTATUS	    = 0x79,
@@ -49,7 +51,8 @@ enum TDS_DATA_TOKEN{
 };
 
 //TDS数据类型定义.
-enum MSSQL_VARI_TYPE{
+enum TDS_DATA_TYPE
+{
 	TDS_DATA_UNKNOWN			    = 0x00,
 	TDS_DATA_NULL					= 0x1F, //Null
 	TDS_DATA_IMAGE					= 0x22, //Image
@@ -81,7 +84,7 @@ enum MSSQL_VARI_TYPE{
 	TDS_DATA_DECIMALN				= 0x6A, //Decimal
 	TDS_DATA_NUMERICN				= 0x6C, //Numeric
 	TDS_DATA_FLOATN				    = 0x6D, //float(n)
-	TDS_DATAL_MONEYN				= 0x6E, //(see below)
+	TDS_DATA_MONEYN				    = 0x6E, //(see below)
 	TDS_DATA_DATETIMEN				= 0x6F, //datetime(n)
 	TDS_DATA_SMALLMONEY			    = 0x7A, //SmallMoney
 	TDS_DATA_BIGINT				    = 0x7F, //BigInt
@@ -95,8 +98,19 @@ enum MSSQL_VARI_TYPE{
 	TDS_DATA_XML					= 0xF1  //XML (introduced in TDS 7.2)
 };
 
+//TDS toekn status.
+enum TDS_TOKEN_STATUS
+{
+	TDS_TOKEN_STATUS_FINAL  = 0x00,
+	TDS_TOKEN_STATUS_MORE   = 0x01,
+	TDS_TOKEN_STATUS_ERROR  = 0x02,
+	TDS_TOKEN_STATUS_INXCAT = 0x04,
+	TDS_TOKEN_STATUS_COUNT  = 0x10
+};
+
 //TDS server version.
-enum TDS_SEVER_VERSION{
+enum TDS_SEVER_VERSION
+{
 	TDS_7_0 = 0x70000000,
 	TDS_7_1 = 0x71000000,
 	TDS_7_2 = 0x72000000,
@@ -131,6 +145,9 @@ typedef struct st_tds
     struct tds_header header;
 
     uint32_t tds_server_version;
+
+	uint32_t columns_select;
+	uint16_t *columns_select_type;
 }ST_TDS;
 
 int dispatch_data_tds(sniffer_session *session,const char * data,uint32_t data_len);
@@ -147,18 +164,18 @@ void dispatch_TDS_TABULARRESULT(struct sniffer_session *session,uint32_t offset)
 void dispatch_TDS_TRANSACTION(struct sniffer_session *session,uint32_t offset);
 void dispatch_TDS_RPC(struct sniffer_session *session,uint32_t offset);
 
-//tokens函数.
-uint32_t dispatch_TDS_TOKEN_ERROR(const char * data);
-uint32_t dispatch_TDS_TOKEN_DONE(const char * data);
-uint32_t dispatch_TDS_TOKEN_DONEPROC(const char * data);
-uint32_t dispatch_TDS_TOKEN_DONEINPROC(const char * data);
-uint32_t dispatch_TDS_TOKEN_COLMETADATA(const char *data);
-uint32_t dispatch_TDS_TOKEN_COLINFO(const char *data);
-uint32_t dispatch_TDS_TOKEN_ORDER(const char *data);
-uint32_t dispatch_TDS_TOKEN_LOGINACK(const char *data);
-uint32_t dispatch_TDS_TOKEN_ROW(const char *data);
-uint32_t dispatch_TDS_TOKEN_INFO(const char *data);
-uint32_t dispatch_TDS_TOKEN_RETURNSTATUS(const char *data);
-uint32_t dispatch_TDS_TOKEN_ENVCHANGE(const char *data);
+//tokens函数.下行流量.
+uint32_t dispatch_TDS_TOKEN_ERROR(struct sniffer_session *session,uint32_t offset);
+uint32_t dispatch_TDS_TOKEN_DONE(struct sniffer_session *session,uint32_t offset);
+uint32_t dispatch_TDS_TOKEN_DONEPROC(struct sniffer_session *session,uint32_t offset);
+uint32_t dispatch_TDS_TOKEN_DONEINPROC(struct sniffer_session *session,uint32_t offset);
+uint32_t dispatch_TDS_TOKEN_COLMETADATA(struct sniffer_session *session,uint32_t offset);
+uint32_t dispatch_TDS_TOKEN_COLINFO(struct sniffer_session *session,uint32_t offset);
+uint32_t dispatch_TDS_TOKEN_ORDER(struct sniffer_session *session,uint32_t offset);
+uint32_t dispatch_TDS_TOKEN_LOGINACK(struct sniffer_session *session,uint32_t offset);
+uint32_t dispatch_TDS_TOKEN_ROW(struct sniffer_session *session,uint32_t offset);
+uint32_t dispatch_TDS_TOKEN_INFO(struct sniffer_session *session,uint32_t offset);
+uint32_t dispatch_TDS_TOKEN_RETURNSTATUS(struct sniffer_session *session,uint32_t offset);
+uint32_t dispatch_TDS_TOKEN_ENVCHANGE(struct sniffer_session *session,uint32_t offset);
 
 #endif //SNIFFER_TDS_H_H_

@@ -613,6 +613,9 @@ int sniffer_session_add(const char * key,tcp_stream stream)
 
         st_tds * st = (struct st_tds*)zmalloc(sizeof(struct st_tds));
 
+        st->tds_server_version = TDS_7_3;
+        st->columns_select_type = NULL;
+
         st->upstream_buf = init_sniffer_buf(1024);
         st->downstream_buf = init_sniffer_buf(1024);
 
@@ -625,7 +628,7 @@ int sniffer_session_add(const char * key,tcp_stream stream)
 
     sess->uuid = init_sniffer_buf(40);
     sniffer_log_uuid(sess->uuid->buf);
-
+    
     g_sessions.insert(make_pair(key,sess));
 
     return ret;
