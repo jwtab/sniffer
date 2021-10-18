@@ -692,7 +692,7 @@ uint32_t dispatch_TDS_TOKEN_DONE(struct sniffer_session *session,uint32_t offset
     operation_cmd += (index_sniffer_buf(buf,offset)&0xff) << 8;
     offset = offset + 1;
 
-    //Row count 4字节<暂时>
+    //Row count 4字节<暂时> TDS_3
     row_count = index_sniffer_buf(buf,offset)&0xff;
     offset = offset + 1;
 
@@ -708,6 +708,11 @@ uint32_t dispatch_TDS_TOKEN_DONE(struct sniffer_session *session,uint32_t offset
     INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_DONE() Status_flag %d,op_cmd %d,row_count %d",
             status_flag,operation_cmd,row_count);
     
+    if(status_flag == TDS_TOKEN_STATUS_COUNT)
+    {
+        proxy_tds->affect_rows = row_count;
+    }
+
     return 12;
 }
 
@@ -750,6 +755,11 @@ uint32_t dispatch_TDS_TOKEN_DONEPROC(struct sniffer_session *session,uint32_t of
     INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_DONEPROC() Status_flag %d,op_cmd %d,row_count %d",
             status_flag,operation_cmd,row_count);
     
+    if(status_flag == TDS_TOKEN_STATUS_COUNT)
+    {
+        proxy_tds->affect_rows = row_count;
+    }
+
     return 12;
 }
 
@@ -792,6 +802,11 @@ uint32_t dispatch_TDS_TOKEN_DONEINPROC(struct sniffer_session *session,uint32_t 
     INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_DONEINPROC() Status_flag %d,op_cmd %d,row_count %d",
             status_flag,operation_cmd,row_count);
     
+    if(status_flag == TDS_TOKEN_STATUS_COUNT)
+    {
+        proxy_tds->affect_rows = row_count;
+    }
+
     return 12;
 }
 
@@ -857,17 +872,19 @@ uint32_t dispatch_TDS_TOKEN_COLMETADATA(struct sniffer_session *session,uint32_t
 
         switch (column_type)
         {
-            case TDS_DATA_TINYINT:
-			case TDS_DATA_SMALLINT:
-			case TDS_DATA_INT:
-			case TDS_DATA_DATETIME:
-			case TDS_DATA_FLOAT:
-			case TDS_DATA_REAL:
-			case TDS_DATA_SMALLDATETIME:
+            //固定长度数据.
+            case TDS_DATA_NULL:
+            case TDS_DATA_INT1TYPE:
 			case TDS_DATA_BIT:
-			case TDS_DATA_BIGINT:
-			case TDS_DATA_DATEN:
-			case TDS_DATA_MONEY:
+			case TDS_DATA_INT2TYPE:
+			case TDS_DATA_INT4TYPE:
+            case TDS_DATA_DATETIME4TYPE:
+            case TDS_DATA_FLT4TYPE:
+            case TDS_DATA_MONEY:
+			case TDS_DATA_DATETIME:
+			case TDS_DATA_FLT8TYPE:
+            case TDS_DATA_MONEY4TYPE:
+			case TDS_DATA_INT8TYPE:
 			{
                 break;
             }
@@ -1048,8 +1065,170 @@ uint32_t dispatch_TDS_TOKEN_ROW(struct sniffer_session *session,uint32_t offset)
     struct st_tds * proxy_tds = (struct st_tds*)session->db_features;
     struct sniffer_buf * buf = proxy_tds->downstream_buf;
 
+    uint32_t offset_old = offset;
+    uint16_t data_len = 0;
 
-    return 0;
+    for(int index = 0; index < proxy_tds->columns_select; index++)
+    {
+        sniffer_buf * column_value = init_sniffer_buf(64);
+
+        switch (proxy_tds->columns_select_type[index])
+        {
+            data_len = 0;
+
+            case TDS_DATA_NULL:
+            {
+                cat_sniffer_buf(column_value,"Null");
+                break;
+            }
+
+            case TDS_DATA_INT1TYPE:
+            case TDS_DATA_BIT:
+            {
+                //数据占用1字节.
+                uint8_t value_ = index_sniffer_buf(buf,offset)&0xff;
+                offset = offset + 1;
+
+                cat_sniffer_buf(column_value,to_string(value_).c_str());
+                break;
+            }
+
+            case TDS_DATA_INT2TYPE:
+            {
+                //数据占用2字节.
+                uint16_t value_ = index_sniffer_buf(buf,offset);
+                offset = offset + 1;
+
+                value_ += (index_sniffer_buf(buf,offset)&0xff) << 8;
+                offset = offset + 1;
+                
+                cat_sniffer_buf(column_value,to_string(value_).c_str());
+                break;
+            }
+
+            case TDS_DATA_INT4TYPE:
+            case TDS_DATA_DATETIME4TYPE:
+            case TDS_DATA_FLT4TYPE:
+            case TDS_DATA_MONEY4TYPE:
+            {
+                //数据占用4字节.
+                uint32_t value_ = index_sniffer_buf(buf,offset);
+                offset = offset + 1;
+
+                value_ += (index_sniffer_buf(buf,offset)&0xff) << 8;
+                offset = offset + 1;
+                
+                value_ += (index_sniffer_buf(buf,offset)&0xff) << 16;
+                offset = offset + 1;
+
+                value_ += (index_sniffer_buf(buf,offset)&0xff) << 24;
+                offset = offset + 1;
+
+                cat_sniffer_buf(column_value,to_string(value_).c_str());
+                break;
+            } 
+
+            case TDS_DATA_INT8TYPE:
+            case TDS_DATA_DATETIME:
+            case TDS_DATA_MONEY:
+            case TDS_DATA_FLT8TYPE:
+            {
+                //数据占用8字节.
+                uint64_t value_ = index_sniffer_buf(buf,offset)&0xff;
+                offset = offset + 1;
+                
+                value_ += (index_sniffer_buf(buf,offset)&0xff) << 8;
+                offset = offset + 1;
+                
+                value_ += (index_sniffer_buf(buf,offset)&0xff) << 16;
+                offset = offset + 1;
+
+                value_ += (index_sniffer_buf(buf,offset)&0xff) << 24;
+                offset = offset + 1;
+
+                value_ += (index_sniffer_buf(buf,offset)&0xff) << 32;
+                offset = offset + 1;
+
+                //最后三位暂时忽略不计.
+                offset = offset + 3;
+
+                cat_sniffer_buf(column_value,to_string(value_).c_str());
+                break;
+            }
+
+            case TDS_DATA_NCHAR:
+            case TDS_DATA_CHARN:
+            case TDS_DATA_CHAR:
+            case TDS_DATA_VARCHARN:
+            case TDS_DATA_NVARCHAR:
+            case TDS_DATA_VARCHAR:
+            {
+                //头两字节是长度.
+                data_len = index_sniffer_buf(buf,offset)&0xff;
+                offset = offset + 1;
+
+                data_len = (index_sniffer_buf(buf,offset)&0xff) << 8;
+                offset = offset + 1;
+
+                for(int j = 0; j < data_len; j++)
+                {
+                    pushback_sniffer_buf(column_value,index_sniffer_buf(buf,offset + j));
+                }
+
+                offset = offset + data_len;
+
+                break;
+            }
+
+            case TDS_DATA_INTN:
+            {
+                uint64_t value_ = 0;
+
+                //头一个字节是长度.
+                data_len = index_sniffer_buf(buf,offset)&0xff;
+                offset = offset + 1;
+                
+                for(int m = 0; m < data_len; m++)
+                {
+                    value_ += (index_sniffer_buf(buf,offset)&0xff) << (m*8);
+                    offset = offset + 1;
+                }
+
+                cat_sniffer_buf(column_value,to_string(value_).c_str());
+                break;
+            }
+
+            case TDS_DATA_BITN:
+            {
+                //占一个字节  标志位.
+                if(0x00 == index_sniffer_buf(buf,offset))
+                {
+                    cat_sniffer_buf(column_value,"False");
+                }
+                else
+                {
+                    offset = offset + 1;
+                    cat_sniffer_buf(column_value,"True");
+                }
+
+                offset = offset + 1;
+                
+                break;
+            }
+
+            default:
+            {
+                break;
+            }
+        }
+
+        INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_ROW() column_index %d,column_value %s",
+                index,buf_sniffer_buf(column_value,0));
+
+        destroy_sniffer_buf(column_value);
+    }
+
+    return (offset - offset_old);
 }
 
 uint32_t dispatch_TDS_TOKEN_INFO(struct sniffer_session *session,uint32_t offset)

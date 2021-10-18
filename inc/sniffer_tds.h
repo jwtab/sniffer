@@ -67,16 +67,16 @@ enum TDS_DATA_TYPE
 	TDS_DATA_DATETIMEOFFSETN		= 0x2B, //(introduced in TDS 7.3)
 	TDS_DATA_BINARY				    = 0x2D, //Binary (legacy support)
 	TDS_DATA_CHAR					= 0x2F, //Char (legacy support)
-	TDS_DATA_TINYINT				= 0x30, //TinyInt
+	TDS_DATA_INT1TYPE				= 0x30, //TinyInt
 	TDS_DATA_BIT					= 0x32, //Bit
-	TDS_DATA_SMALLINT				= 0x34, //SmallInt
+	TDS_DATA_INT2TYPE				= 0x34, //SmallInt
 	TDS_DATA_DECIMAL				= 0x37, //Decimal (legacy support)
-	TDS_DATA_INT					= 0x38, //Int
-	TDS_DATA_SMALLDATETIME			= 0x3A, //SmallDateTime
-	TDS_DATA_REAL					= 0x3B, //Real
+	TDS_DATA_INT4TYPE				= 0x38, //Int
+	TDS_DATA_DATETIME4TYPE			= 0x3A, //SmallDateTime
+	TDS_DATA_FLT4TYPE				= 0x3B, //Real
 	TDS_DATA_MONEY					= 0x3C, //Money
 	TDS_DATA_DATETIME				= 0x3D, //DateTime
-	TDS_DATA_FLOAT					= 0x3E, //Float
+	TDS_DATA_FLT8TYPE				= 0x3E, //Float
 	TDS_DATA_NUMERIC				= 0x3F, //Numeric (legacy support)
 	TDS_DATA_SQLVARIANT 			= 0x62, //Sql_Variant (introduced in TDS 7.2)
 	TDS_DATA_NTEXT					= 0x63, //NText
@@ -86,8 +86,8 @@ enum TDS_DATA_TYPE
 	TDS_DATA_FLOATN				    = 0x6D, //float(n)
 	TDS_DATA_MONEYN				    = 0x6E, //(see below)
 	TDS_DATA_DATETIMEN				= 0x6F, //datetime(n)
-	TDS_DATA_SMALLMONEY			    = 0x7A, //SmallMoney
-	TDS_DATA_BIGINT				    = 0x7F, //BigInt
+	TDS_DATA_MONEY4TYPE			    = 0x7A, //SmallMoney
+	TDS_DATA_INT8TYPE				= 0x7F, //BigInt
 	TDS_DATA_VARBINARYN			    = 0xA5, //VarBinary
 	TDS_DATA_VARCHARN				= 0xA7, //VarChar(n)
 	TDS_DATA_BINARYN				= 0xAD, //Binary(n),可以存放timestamp,rowversion
@@ -146,8 +146,11 @@ typedef struct st_tds
 
     uint32_t tds_server_version;
 
+	uint32_t affect_rows;
+
 	uint32_t columns_select;
 	uint16_t *columns_select_type;
+	sniffer_buf **columns_select_name;
 }ST_TDS;
 
 int dispatch_data_tds(sniffer_session *session,const char * data,uint32_t data_len);
