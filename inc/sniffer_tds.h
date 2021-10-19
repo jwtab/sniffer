@@ -144,13 +144,18 @@ typedef struct st_tds
 
     struct tds_header header;
 
+	uint8_t query;
+	
     uint32_t tds_server_version;
 
 	uint32_t affect_rows;
+	uint32_t max_rowset;
 
 	uint32_t columns_select;
 	uint16_t *columns_select_type;
 	sniffer_buf **columns_select_name;
+
+	cJSON * select_body;
 }ST_TDS;
 
 int dispatch_data_tds(sniffer_session *session,const char * data,uint32_t data_len);

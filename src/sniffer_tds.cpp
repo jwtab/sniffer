@@ -65,12 +65,26 @@ int dispatch_data_tds_upstream(sniffer_session *session,const char * data,uint32
     {
         case TDS_TYPE_SQLBATCH:
         {
+            proxy_tds->query = 1;
+
+            proxy_tds->columns_select = 0;
+            proxy_tds->affect_rows = 0;
+            session->err_code = 0;
+
+            session->op_start = sniffer_log_time_ms();
             dispatch_TDS_SQLBATCH(session,offset);
             break;
         }
 
         case TDS_TYPE_RPC:
         {
+            proxy_tds->query = 1;
+            
+            proxy_tds->columns_select = 0;
+            proxy_tds->affect_rows = 0;
+            session->err_code = 0;
+
+            session->op_start = sniffer_log_time_ms();
             dispatch_TDS_RPC(session,offset);
             break;
         }
@@ -87,6 +101,10 @@ int dispatch_data_tds_upstream(sniffer_session *session,const char * data,uint32
 
         case TDS_TYPE_PRELOGIN:
         {
+            proxy_tds->query = 0;
+            session->err_code = 0;
+
+            session->op_start = sniffer_log_time_ms();
             dispatch_TDS_PRELOGIN(session,offset);
             break;
         }
@@ -98,6 +116,7 @@ int dispatch_data_tds_upstream(sniffer_session *session,const char * data,uint32
 
         case TDS_TYPE_TRANSACTION:
         {
+            proxy_tds->query = 1;
             dispatch_TDS_TRANSACTION(session,offset);
             break;
         }
@@ -243,6 +262,8 @@ void dispatch_TDS_SQLBATCH(struct sniffer_session *session,uint32_t offset)
     }
 
     INFO_LOG("sniffer_tds.cpp:dispatch_TDS_SQLBATCH() sql_len %d,sql %s",len_sniffer_buf(sql),buf_sniffer_buf(sql,0));
+
+    session->current_sql = init_sniffer_buf(sql->buf,sql->used);
 
     destroy_sniffer_buf(sql);
     sql = NULL;
@@ -616,6 +637,8 @@ void dispatch_TDS_RPC(struct sniffer_session *session,uint32_t offset)
 
     INFO_LOG("sniffer_tds.cpp:dispatch_TDS_RPC() rpc_name %s",buf_sniffer_buf(sql,0));
 
+    session->current_sql = init_sniffer_buf(sql->buf,sql->used);
+
     destroy_sniffer_buf(sql);
     sql = NULL;
 }
@@ -628,6 +651,7 @@ uint32_t dispatch_TDS_TOKEN_ERROR(struct sniffer_session *session,uint32_t offse
     uint32_t token_len = 0;
     uint32_t sql_error_number = 0;
     uint16_t error_msg_len = 0;
+    struct sniffer_buf * err_msg = init_sniffer_buf(128);
 
     //token len 2字节.
     token_len = index_sniffer_buf(buf,offset)&0xff;
@@ -665,6 +689,20 @@ uint32_t dispatch_TDS_TOKEN_ERROR(struct sniffer_session *session,uint32_t offse
     INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_ERROR() token_length %d,error_code %d,error_msg_length %d",
             token_len,sql_error_number,error_msg_len);
     
+    session->err_code = sql_error_number;
+    session->err_msg = init_sniffer_buf(err_msg->buf,err_msg->used);
+    
+    //上报状态
+    session->op_end = sniffer_log_time_ms();
+    if(proxy_tds->query > 0)
+    {
+        sniffer_sql_log(session);
+    }
+    else
+    {
+        sniffer_session_log(session);
+    }
+
     //该token占用的实际空间.
     return (token_len + 2);
 }
@@ -705,12 +743,29 @@ uint32_t dispatch_TDS_TOKEN_DONE(struct sniffer_session *session,uint32_t offset
     row_count += (index_sniffer_buf(buf,offset)&0xff) << 24;
     offset = offset + 1;
 
-    INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_DONE() Status_flag %d,op_cmd %d,row_count %d",
-            status_flag,operation_cmd,row_count);
+    INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_DONE() Status_flag %d,op_cmd %d,row_count_ret %d,row_count_cmt %d",
+            status_flag,operation_cmd,row_count,proxy_tds->affect_rows);
     
-    if(status_flag == TDS_TOKEN_STATUS_COUNT)
+    //update/delete/update等操作.
+    if(TDS_TOKEN_STATUS_COUNT == status_flag)
     {
         proxy_tds->affect_rows = row_count;
+    }
+
+    if(TDS_TOKEN_STATUS_MORE != status_flag &&
+        session->err_code == 0)
+    {
+        //上报状态.
+        session->op_end = sniffer_log_time_ms();
+
+        if(proxy_tds->query > 0)
+        {
+            sniffer_sql_log(session);
+        }
+        else
+        {
+            sniffer_session_log(session);
+        }
     }
 
     return 12;
@@ -752,12 +807,20 @@ uint32_t dispatch_TDS_TOKEN_DONEPROC(struct sniffer_session *session,uint32_t of
     row_count += (index_sniffer_buf(buf,offset)&0xff) << 24;
     offset = offset + 1;
 
-    INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_DONEPROC() Status_flag %d,op_cmd %d,row_count %d",
-            status_flag,operation_cmd,row_count);
+    INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_DONEPROC() Status_flag %d,op_cmd %d,row_count_ret %d,row_count_cmt %d",
+            status_flag,operation_cmd,row_count,proxy_tds->affect_rows);
     
     if(status_flag == TDS_TOKEN_STATUS_COUNT)
     {
         proxy_tds->affect_rows = row_count;
+    }
+
+    if(TDS_TOKEN_STATUS_MORE != status_flag &&
+        session->err_code <= 0)
+    {
+        //上报状态.
+        session->op_end = sniffer_log_time_ms();
+        sniffer_sql_log(session);
     }
 
     return 12;
@@ -836,6 +899,8 @@ uint32_t dispatch_TDS_TOKEN_COLMETADATA(struct sniffer_session *session,uint32_t
     INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_COLMETADATA() columns %d",columns_select);
 
     proxy_tds->columns_select = columns_select;
+
+    proxy_tds->columns_select_name = (struct sniffer_buf**)zmalloc(columns_select*sizeof(struct sniffer_buf*));
 
     if(NULL != proxy_tds->columns_select_type)
     {
@@ -990,11 +1055,17 @@ uint32_t dispatch_TDS_TOKEN_COLMETADATA(struct sniffer_session *session,uint32_t
         INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_COLMETADATA() index %d,type 0x%02x,name %s",
                 i+1,column_type,buf_sniffer_buf(column_name,0));
 
+        proxy_tds->columns_select_name[i] = init_sniffer_buf(buf_sniffer_buf(column_name,0));
+
         reset_sniffer_buf(column_name);
     }
 
     destroy_sniffer_buf(column_name);
     column_name = NULL;
+
+    proxy_tds->select_body = cJSON_CreateArray();
+    proxy_tds->max_rowset = 0;
+    proxy_tds->affect_rows = 0;
 
     return (offset - offset_old);
 }
@@ -1057,6 +1128,14 @@ uint32_t dispatch_TDS_TOKEN_LOGINACK(struct sniffer_session *session,uint32_t of
 
     INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_LOGINACK() TDS VERSION 0x%08x",tds_server_version);
 
+    //记录状态.
+    session->err_code = 0;
+    session->err_msg = NULL;
+    session->login_user = NULL;
+    session->login_with_schema = NULL;
+    session->os_info = NULL;
+    session->os_user = NULL;
+
     return (token_len + 2);
 }
 
@@ -1068,6 +1147,9 @@ uint32_t dispatch_TDS_TOKEN_ROW(struct sniffer_session *session,uint32_t offset)
     uint32_t offset_old = offset;
     uint16_t data_len = 0;
     sniffer_buf * column_value = init_sniffer_buf(64);
+    cJSON * row_item = cJSON_CreateObject();
+
+    proxy_tds->affect_rows++;
 
     for(uint32_t index = 0; index < proxy_tds->columns_select; index++)
     {
@@ -1261,8 +1343,19 @@ uint32_t dispatch_TDS_TOKEN_ROW(struct sniffer_session *session,uint32_t offset)
 
         INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_ROW() column_index %d,data_len %d,column_value %s",
                 index,data_len,buf_sniffer_buf(column_value,0));
+        
+        if(proxy_tds->max_rowset < sniffer_cfg_max_rowset())
+        {
+            cJSON_AddItemToObject(row_item,proxy_tds->columns_select_name[index]->buf,cJSON_CreateString(column_value->buf));
+        }
 
         reset_sniffer_buf(column_value);
+    }
+
+    if(proxy_tds->max_rowset < sniffer_cfg_max_rowset())
+    {
+        cJSON_AddItemToArray(proxy_tds->select_body,row_item);
+        proxy_tds->max_rowset++;
     }
 
     destroy_sniffer_buf(column_value);
@@ -1292,7 +1385,26 @@ uint32_t dispatch_TDS_TOKEN_INFO(struct sniffer_session *session,uint32_t offset
 
 uint32_t dispatch_TDS_TOKEN_RETURNSTATUS(struct sniffer_session *session,uint32_t offset)
 {
-    return 0;
+    struct st_tds * proxy_tds = (struct st_tds*)session->db_features;
+    struct sniffer_buf * buf = proxy_tds->downstream_buf;
+    uint32_t value_ = 0;
+
+    //4字节.
+    value_ = index_sniffer_buf(buf,offset)&0xff;
+    offset = offset + 1;
+
+    value_ += (index_sniffer_buf(buf,offset)&0xff) << 8;
+    offset = offset + 1;
+
+    value_ += (index_sniffer_buf(buf,offset)&0xff) << 16;
+    offset = offset + 1;
+
+    value_ += (index_sniffer_buf(buf,offset)&0xff) << 24;
+    offset = offset + 1;
+
+    DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_RETURNSTATUS() value %d",value_);
+
+    return 4;
 }
 
 uint32_t dispatch_TDS_TOKEN_ENVCHANGE(struct sniffer_session *session,uint32_t offset)

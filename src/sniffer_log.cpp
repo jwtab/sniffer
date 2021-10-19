@@ -13,7 +13,7 @@ static char DB_TYPE_string[DB_TYPE_MAX][64] =
     "GBase 8a",
     "Oracle",
     "PostgreSQL",
-    "Greenplum"
+    "Greenplum",
     "DM",
     "Informix",
     "GBase 8s",

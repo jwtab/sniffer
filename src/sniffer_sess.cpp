@@ -295,7 +295,9 @@ void sniffer_sql_log(sniffer_session * sess)
         cJSON_AddItemToObject(pValues,"s_database",cJSON_CreateNull());
     }
 
-    if(sess->db_type == DB_TYPE_MYSQL)
+    if(sess->db_type == DB_TYPE_MYSQL ||
+        sess->db_type == DB_TYPE_MARIADB ||
+        sess->db_type == DB_TYPE_GBASE8A)
     {
         struct st_mysql *mysql = (struct st_mysql*)sess->db_features;
         if(mysql->affect_rows > 0 &&
@@ -349,6 +351,33 @@ void sniffer_sql_log(sniffer_session * sess)
             cJSON_AddItemToObject(pValues,"s_body",cJSON_CreateNull());
         }
     }
+    else if(sess->db_type == DB_TYPE_MSSQL)
+    {
+        struct st_tds *tds = (struct st_tds*)sess->db_features;
+        if(tds->affect_rows > 0 &&
+            tds->columns_select > 0)
+        {
+            cJSON_AddItemToObject(pValues,"s_body",tds->select_body);
+            if(tds->columns_select_name)
+            {
+                for(uint32_t i = 0; i < tds->columns_select; i++)
+                {
+                    if(tds->columns_select_name[i])
+                    {
+                        destroy_sniffer_buf(tds->columns_select_name[i]);
+                        tds->columns_select_name[i] = NULL;
+                    }
+                }
+
+                zfree(tds->columns_select_name);
+                tds->columns_select_name = NULL;
+            }
+        }
+        else
+        {
+            cJSON_AddItemToObject(pValues,"s_body",cJSON_CreateNull());
+        }
+    }
     else
     {
         cJSON_AddItemToObject(pValues,"s_body",cJSON_CreateNull());
@@ -388,13 +417,19 @@ void sniffer_sql_log(sniffer_session * sess)
         cJSON_AddItemToObject(pValues,"err_msg",cJSON_CreateNull());
     }
 
-    if(sess->db_type == DB_TYPE_MYSQL)
+    if(sess->db_type == DB_TYPE_MYSQL ||
+        sess->db_type == DB_TYPE_MARIADB ||
+        sess->db_type == DB_TYPE_GBASE8A)
     {
         cJSON_AddItemToObject(pValues,"effect_rows",cJSON_CreateNumber(((struct st_mysql*)sess->db_features)->affect_rows));
     }
     else if(sess->db_type == DB_TYPE_ORACLE)
     {
         cJSON_AddItemToObject(pValues,"effect_rows",cJSON_CreateNumber(((struct st_oracle*)sess->db_features)->affect_rows));
+    }
+    else if(sess->db_type == DB_TYPE_MSSQL)
+    {
+        cJSON_AddItemToObject(pValues,"effect_rows",cJSON_CreateNumber(((struct st_tds*)sess->db_features)->affect_rows));
     }
     else
     {
@@ -622,7 +657,7 @@ int sniffer_session_add(const char * key,tcp_stream stream)
         
         st->upstream_buf = init_sniffer_buf(1024);
         st->downstream_buf = init_sniffer_buf(1024);
-        
+
         sess->db_features = (void*)st;
     }
     else if(sess->db_type == DB_TYPE_DB2)
