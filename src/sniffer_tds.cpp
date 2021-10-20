@@ -1255,7 +1255,7 @@ uint32_t dispatch_TDS_TOKEN_ROW(struct sniffer_session *session,uint32_t offset)
                 data_len += (index_sniffer_buf(buf,offset)&0xff) << 8;
                 offset = offset + 1;
 
-                for(int j = 0; j < data_len*2; j++)
+                for(int j = 0; j < data_len; j++)
                 {
                     if(0x00 != index_sniffer_buf(buf,offset + j))
                     {
@@ -1330,6 +1330,56 @@ uint32_t dispatch_TDS_TOKEN_ROW(struct sniffer_session *session,uint32_t offset)
                 offset = offset + data_len;
 
                 cat_sniffer_buf(column_value,"TDS_DATA_SQLVARIANT");
+                break;
+            }
+
+            case TDS_DATA_DATEN:
+            {
+                if(0x00 == (index_sniffer_buf(buf,offset)&0xff))
+                {
+                    offset = offset + 1;
+                    cat_sniffer_buf(column_value,"Null");
+                }
+                else
+                {
+                    data_len = (index_sniffer_buf(buf,offset)&0xff);
+                    offset = offset + 1;
+                    if(0x03 == data_len)
+                    {
+                        uint64_t days = 0;
+                        timeval tv;
+                        char c_value[64] = {0};
+
+                        //天数3字节.
+                        days = (index_sniffer_buf(buf,offset)&0xff);
+                        offset = offset + 1;
+
+                        days += (index_sniffer_buf(buf,offset)&0xff) << 8;
+                        offset = offset + 1;
+
+                        days += (index_sniffer_buf(buf,offset)&0xff) << 16;
+                        offset = offset + 1;
+
+                        tv.tv_sec = days*86400 - 62135596800;
+                        tv.tv_usec = 0;
+
+                        tm * t = localtime(&tv.tv_sec);
+                        sprintf(c_value,"%d-%02d-%02d",t->tm_year+1900,t->tm_mon+1,t->tm_mday);
+
+                        cat_sniffer_buf(column_value,c_value);
+                    }
+                }
+
+                break;
+            }
+
+            case TDS_DATA_TIMEN:
+            {
+                data_len = index_sniffer_buf(buf,offset)&0xff;
+                offset = offset + 1;
+
+                offset = offset + data_len;
+                cat_sniffer_buf(column_value,"(Unk_TIMEN)");
                 break;
             }
 
