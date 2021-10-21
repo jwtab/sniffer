@@ -396,6 +396,7 @@ void dispatch_TDS_TABULARRESULT(struct sniffer_session *session,uint32_t offset)
             case TDS_TOKEN_NBCROW:
             {
                 DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TABULARRESULT() token %s","TDS_TOKEN_NBCROW");
+                offset = offset + dispatch_TDS_TOKEN_ROW(session,offset,true);
                 break;
             }
 
@@ -1139,7 +1140,7 @@ uint32_t dispatch_TDS_TOKEN_LOGINACK(struct sniffer_session *session,uint32_t of
     return (token_len + 2);
 }
 
-uint32_t dispatch_TDS_TOKEN_ROW(struct sniffer_session *session,uint32_t offset)
+uint32_t dispatch_TDS_TOKEN_ROW(struct sniffer_session *session,uint32_t offset,bool isNull)
 {
     struct st_tds * proxy_tds = (struct st_tds*)session->db_features;
     struct sniffer_buf * buf = proxy_tds->downstream_buf;
@@ -1153,6 +1154,11 @@ uint32_t dispatch_TDS_TOKEN_ROW(struct sniffer_session *session,uint32_t offset)
 
     for(uint32_t index = 0; index < proxy_tds->columns_select; index++)
     {
+        if(isNull)
+        {
+
+        }
+
         switch (proxy_tds->columns_select_type[index])
         {
             data_len = 0;
