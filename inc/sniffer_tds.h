@@ -181,7 +181,7 @@ uint32_t dispatch_TDS_TOKEN_COLMETADATA(struct sniffer_session *session,uint32_t
 uint32_t dispatch_TDS_TOKEN_COLINFO(struct sniffer_session *session,uint32_t offset);
 uint32_t dispatch_TDS_TOKEN_ORDER(struct sniffer_session *session,uint32_t offset);
 uint32_t dispatch_TDS_TOKEN_LOGINACK(struct sniffer_session *session,uint32_t offset);
-uint32_t dispatch_TDS_TOKEN_ROW(struct sniffer_session *session,uint32_t offset,bool isNull = false);
+uint32_t dispatch_TDS_TOKEN_ROW(struct sniffer_session *session,uint32_t offset,bool isNBCRow = false);
 uint32_t dispatch_TDS_TOKEN_INFO(struct sniffer_session *session,uint32_t offset);
 uint32_t dispatch_TDS_TOKEN_RETURNSTATUS(struct sniffer_session *session,uint32_t offset);
 uint32_t dispatch_TDS_TOKEN_ENVCHANGE(struct sniffer_session *session,uint32_t offset);

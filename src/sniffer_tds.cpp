@@ -1140,7 +1140,7 @@ uint32_t dispatch_TDS_TOKEN_LOGINACK(struct sniffer_session *session,uint32_t of
     return (token_len + 2);
 }
 
-uint32_t dispatch_TDS_TOKEN_ROW(struct sniffer_session *session,uint32_t offset,bool isNull)
+uint32_t dispatch_TDS_TOKEN_ROW(struct sniffer_session *session,uint32_t offset,bool isNBCRow)
 {
     struct st_tds * proxy_tds = (struct st_tds*)session->db_features;
     struct sniffer_buf * buf = proxy_tds->downstream_buf;
@@ -1152,11 +1152,39 @@ uint32_t dispatch_TDS_TOKEN_ROW(struct sniffer_session *session,uint32_t offset,
 
     proxy_tds->affect_rows++;
 
+    //跳过标志位列.
+    if(isNBCRow) 
+    {
+        offset = offset + proxy_tds->columns_select/8;
+        if(0 != (proxy_tds->columns_select%8))
+        {
+            offset = offset + 1;
+        }
+    }
+
     for(uint32_t index = 0; index < proxy_tds->columns_select; index++)
     {
-        if(isNull)
+        if(isNBCRow)
         {
+            //跳过空列.
+            uint8_t relbyte = index_sniffer_buf(buf,offset_old + index/8);
+            uint8_t relbit = relbyte & (1 << (index%8));
 
+            DEBUG_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_ROW() relbyte %d,index %d,relbit %d",relbyte,index,relbit);
+            if(0 != relbit)
+            {
+                WARN_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_ROW() column_index %d,column_name %s . NO_DATA",
+                        (index + 1),buf_sniffer_buf(proxy_tds->columns_select_name[index],0));
+                
+                if(proxy_tds->max_rowset < sniffer_cfg_max_rowset())
+                {
+                    cJSON_AddItemToObject(row_item,proxy_tds->columns_select_name[index]->buf,cJSON_CreateString("Null"));
+                }
+
+                reset_sniffer_buf(column_value);
+
+                continue;
+            }
         }
 
         switch (proxy_tds->columns_select_type[index])
@@ -1398,7 +1426,7 @@ uint32_t dispatch_TDS_TOKEN_ROW(struct sniffer_session *session,uint32_t offset,
         }
 
         INFO_LOG("sniffer_tds.cpp:dispatch_TDS_TOKEN_ROW() column_index %d,data_len %d,column_value %s",
-                index,data_len,buf_sniffer_buf(column_value,0));
+                (index + 1),data_len,buf_sniffer_buf(column_value,0));
         
         if(proxy_tds->max_rowset < sniffer_cfg_max_rowset())
         {
