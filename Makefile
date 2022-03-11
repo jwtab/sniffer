@@ -6,7 +6,7 @@ GXX := c++
 TARGET := ./bin/sniffer
 
 INC := -I ./inc
-LIBS := -lpcap -lrdkafka 
+LIBS := -lpcap -lrdkafka -lsqlite3
 
 ifeq ($(uname_s),Linux)
     LIBS += -Wl,-rpath=/opt/BDSP/bdsp_sniffer/lib

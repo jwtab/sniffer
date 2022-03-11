@@ -6,7 +6,8 @@
 
 void sniffer_log(LOG_TYPE t,const char * format,...);
 
-void sniffer_log_uuid(char * uuid);
+void sniffer_log_uuid(const char * key,char * uuid);
+void sniffer_log_uuid_del(const char * key,char * uuid);
 
 void sniffer_kafka_log(const char * log,uint32_t log_len);
 void sniffer_kafka_body(cJSON * body);

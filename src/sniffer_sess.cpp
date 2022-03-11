@@ -666,7 +666,7 @@ int sniffer_session_add(const char * key,tcp_stream stream)
     }
 
     sess->uuid = init_sniffer_buf(40);
-    sniffer_log_uuid(sess->uuid->buf);
+    sniffer_log_uuid(key,sess->uuid->buf);
 
     g_sessions.insert(make_pair(key,sess));
 
@@ -682,6 +682,8 @@ void sniffer_session_delete(const char * key)
 
         INFO_LOG("sniffer_sess.cpp:sniffer_session_add() delete_session db_type %s",sniffer_DB_TYPE_string(sess->db_type));
         
+        sniffer_log_uuid_del(key,sess->uuid->buf);
+
         //删除会话信息.
         sess->op_start = sess->op_end = sniffer_log_time_ms();
         sniffer_session_log(sess,false);

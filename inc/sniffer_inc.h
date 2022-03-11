@@ -23,6 +23,7 @@
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
 
+#include <sqlite3.h>
 
 #include <cJSON.h>
 

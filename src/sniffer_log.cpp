@@ -5,6 +5,8 @@
 
 #include <librdkafka/rdkafka.h>
 
+sqlite3 * g_db = NULL;
+
 static char DB_TYPE_string[DB_TYPE_MAX][64] = 
 {
     "Unkown",
@@ -80,6 +82,66 @@ static void sniffer_log_msg_cb(rd_kafka_t *rk,const rd_kafka_message_t *rkmessag
 	{
         DEBUG_LOG("sniffer_log.cpp:sniffer_log_msg_cb() Message delivered %d bytes",rkmessage->len);
     }
+}
+
+static void sniffer_log_select_uuid(const char * key,char *uuid)
+{
+    if(NULL == g_db)
+    {
+        return;
+    }
+
+    sqlite3_stmt *stmt = NULL;    // stmt语句句柄
+    string sql = "select uuid from sniffer where key = ";
+    sql = sql + key;
+
+    int result = sqlite3_prepare_v2(g_db, sql.c_str(), -1, &stmt, NULL);
+    if (result == SQLITE_OK) 
+    {
+        while(sqlite3_step(stmt) == SQLITE_ROW) 
+        {
+            // 取出第0列字段的值
+            const unsigned char *name = sqlite3_column_text(stmt, 0);
+            strcpy(uuid,(char*)name);
+            return;
+        }
+    }
+    else 
+    {
+    }
+
+    //清理语句句柄，准备执行下一个语句
+    sqlite3_finalize(stmt);
+}
+
+static void sniffer_log_insert_uuid(const char *key,char *uuid)
+{
+    char insert_sql[1024] = {0};
+    sprintf(insert_sql,"insert into sniffer (key,uuid) values ('%s','%s')",key,uuid);
+
+    sqlite3_stmt *stmt = NULL;        //stmt语句句柄
+    int result = sqlite3_prepare_v2(g_db, insert_sql, -1, &stmt, NULL);
+    if (result == SQLITE_OK) 
+    {
+        sqlite3_step(stmt);
+    }
+
+    sqlite3_finalize(stmt);
+}
+
+static void sniffer_log_delete_uuid(const char *key,char *uuid)
+{
+    char insert_sql[1024] = {0};
+    sprintf(insert_sql,"delete from sniffer where key = '%s'",key);
+
+    sqlite3_stmt *stmt = NULL;        //stmt语句句柄
+    int result = sqlite3_prepare_v2(g_db, insert_sql, -1, &stmt, NULL);
+    if (result == SQLITE_OK) 
+    {
+        sqlite3_step(stmt);
+    }
+
+    sqlite3_finalize(stmt);
 }
 
 void sniffer_log(LOG_TYPE t,const char * format,...)
@@ -270,18 +332,47 @@ string sniffer_current_time()
     return time_format;
 }
 
-void sniffer_log_uuid(char * uuid)
+void sniffer_log_uuid_del(const char * key,char * uuid)
+{
+    sniffer_log_delete_uuid(key,uuid);
+}
+
+void sniffer_log_uuid(const char *key,char * uuid)
 {
     string cmd_line = "uuidgen";
+    bool regen = false;
 
-    FILE * file = popen(cmd_line.c_str(),"r");
-    if(file)
+    if(NULL == g_db)
     {
-        fread(uuid,1,36,file);
+        if(sqlite3_open("sniffer.db",&g_db))
+        {
+            ERROR_LOG("sniffer_sess.cpp:sniffer_session_uuid() error sqlite3_open() %s",sqlite3_errmsg(g_db));
+            regen = true;
+        }
+    }
 
-        fclose(file);
-
+    sniffer_log_select_uuid(key,uuid);
+    if(strlen(uuid) > 0)
+    {
         return;
+    }
+
+    regen = true;
+
+    if(regen)
+    {
+        FILE * file = popen(cmd_line.c_str(),"r");
+        if(file)
+        {
+            fread(uuid,1,36,file);
+
+            fclose(file);
+
+            sniffer_log_delete_uuid(key,uuid);
+            sniffer_log_insert_uuid(key,uuid);
+
+            return;
+        }
     }
 
     ERROR_LOG("sniffer_sess.cpp:sniffer_session_uuid() error error_code %d",errno);
